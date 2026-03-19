@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "created": "",
+  "updated": "",
+  "data_dir": "~/Documents/JobScout",
+  "assessment_style": "honest",
+
+  "candidate": {
+    "name": "",
+    "email": "",
+    "location": "",
+    "resume_path": "",
+    "linkedin_export_path": ""
+  },
+
+  "preferences": {
+    "salary_minimum": 0,
+    "salary_type": "total_compensation",
+    "open_to_relocation": false,
+    "relocation_regions": [],
+    "work_arrangement": ["remote", "hybrid", "onsite"],
+    "target_level": ["Director", "VP", "SVP", "CTO", "Executive"],
+    "deal_breakers": [],
+    "industries_preferred": [],
+    "industries_avoid": []
+  },
+
+  "search": {
+    "queries": [],
+    "target_companies_from_master": true,
+    "companies_per_day": 5,
+    "max_listings_per_run": 30
+  },
+
+  "scoring": {
+    "connection_weight": 30,
+    "experience_match_weight": 25,
+    "domain_fit_weight": 20,
+    "compensation_weight": 15,
+    "realistic_shot_weight": 10,
+    "tier_a_threshold": 75,
+    "tier_b_threshold": 55
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "generated": "",
+
+  "summary": {
+    "headline": "",
+    "years_experience": 0,
+    "highest_level_held": "",
+    "largest_team": 0,
+    "largest_p_and_l": "",
+    "biggest_scale_claim": ""
+  },
+
+  "experience": [],
+
+  "skills": {
+    "strongest": [],
+    "credible": [],
+    "aspirational": [],
+    "unique_differentiators": []
+  },
+
+  "education": {
+    "degree": "",
+    "certifications": [],
+    "credential_gap_note": ""
+  },
+
+  "positioning": {
+    "sweet_spot_roles": [],
+    "stretch_roles": [],
+    "underutilized_assets": [],
+    "market_challenges": []
+  },
+
+  "network": {
+    "total_connections": 0,
+    "senior_leadership_pct": 0,
+    "top_companies_by_count": []
+  }
+}
