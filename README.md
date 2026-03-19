@@ -55,10 +55,10 @@ After your first manual run confirms everything works, you can schedule the scou
 
 ## File Outputs
 
-All outputs go to your configured data directory (default: `~/Documents/JobScout/`):
+All outputs go to your configured data directory (default: `~/Documents/JobSearch/`):
 
 ```
-~/Documents/JobScout/
+~/Documents/JobSearch/
 ├── config.json                  # Your search configuration
 ├── candidate_profile.json       # Extracted profile data
 ├── master_targets.csv           # Company database with connection counts

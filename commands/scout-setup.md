@@ -25,8 +25,10 @@ Use AskUserQuestion to gather these inputs. Ask them in sequence, not all at onc
    - If yes: ask for file paths
 
 4. "Where should I save everything?"
-   - Default: ~/Documents/JobScout/
+   - Default: ~/Documents/JobSearch/ (same folder as existing job search data if present)
+   - Alternate: ~/Documents/JobScout/
    - Create the directory structure if it doesn't exist
+   - **IMPORTANT:** Save to a folder the user has selected as their Cowork workspace, or files won't persist between sessions.
 
 ## Step 2: Questionnaire
 
