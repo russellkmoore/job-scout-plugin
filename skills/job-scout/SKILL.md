@@ -6,7 +6,7 @@ description: >
   "job matches", or anything related to automated job searching, job scoring, resume tailoring,
   or career assessment. Also triggers for "honest career assessment", "job market positioning",
   or "ATS optimization."
-version: 0.2.0
+version: 0.2.1
 ---
 
 # Job Scout
@@ -46,11 +46,18 @@ When using Claude in Chrome to browse LinkedIn:
 
 - **Be patient with page loads.** LinkedIn can be slow. Wait for content to render before trying to read.
 - **Pagination.** Check at least 2-3 pages per search query.
-- **Rate limiting.** Don't click too rapidly. Pause between navigation actions.
-- **Reading JDs.** After clicking into a listing, scroll down and wait before reading. Use `get_page_text` first. If the JD doesn't appear, try scrolling via `javascript_tool` with `window.scrollTo(0, 1000)` then read again.
-- **Promoted/external listings.** Some listings say "Responses managed off LinkedIn" or "Promoted by hirer" — these often don't have JDs on LinkedIn. Note them with available metadata (title, company, salary, location) and move on.
+- **Rate limiting.** Don't click too rapidly. Pause between navigation actions. If you hit "LinkedIn will be back soon" — wait 30 seconds, navigate to the feed first, then resume.
+- **Reading JDs — CRITICAL: LinkedIn lazy-loads job descriptions.** The JD is NOT in the initial page DOM. LinkedIn does this as an anti-bot measure. You MUST follow this exact sequence:
+  1. Navigate to the job listing URL
+  2. Scroll past the header: `javascript_tool` with `window.scrollTo(0, 800)`
+  3. Wait 3-5 seconds for async content to render
+  4. Use `find` to locate the "...more" button/link, then click it to expand the full description
+  5. NOW call `get_page_text` — the complete JD text will be present
+  If you skip these steps, `get_page_text` returns only header metadata (title, company, salary, location) with zero JD content. This is true for ALL listings, not just "Promoted by hirer" ones.
+- **Truly external listings.** If the JD still doesn't appear after scroll+wait+expand, the listing may route entirely to an external career site. Note it with available metadata and move on.
+- **Career page browsing.** When checking a company's direct career page (from `career_page_url` in master_targets.csv), JDs typically load normally without the lazy-load workaround. Career pages are more reliable for full JD extraction.
 - **Company page Jobs tab.** Navigate directly to `linkedin.com/company/[name]/jobs/` — this is more reliable than using URL filter parameters like `f_C=`.
-- **Boolean queries.** Use OR operators and quoted phrases in keyword searches for precision: `"VP engineering" OR "director of engineering" e-commerce` works better than `VP engineering director e-commerce`.
+- **Boolean queries.** Use OR operators and quoted phrases in keyword searches for precision: `"VP engineering" OR "director of engineering" e-commerce` works better than `VP engineering director e-commerce`. NOTE: The `f_C` company filter parameter is ignored when keywords contain OR operators — use company page navigation instead.
 - **Never enter credentials.** If not logged in, stop and ask the user.
 
 ## Scoring System
@@ -91,7 +98,7 @@ Use the connection-first weighted rubric. Full details in `references/search-con
 Read `references/search-config.md` for the full search framework.
 
 ### Priority 1: Company-First (Highest ROI)
-Check target companies directly on their LinkedIn Jobs page. Select companies by connection count, last_checked recency, and pipeline status. Also rotate through supplemental company lists the candidate provided.
+Check target companies on BOTH their LinkedIn Jobs page AND their direct career page (if `career_page_url` exists in master_targets.csv). Career pages often have roles not posted on LinkedIn and provide full JDs without lazy-loading issues. Select companies by connection count, last_checked recency, and pipeline status. Also rotate through supplemental company lists the candidate provided.
 
 ### Priority 2: Keyword Searches
 Run configured queries with Boolean operators and filters. Always filter by Date Posted (Past 24 hours daily, Past week first run) and Experience Level (Director/Executive).

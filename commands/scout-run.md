@@ -39,24 +39,36 @@ Use Claude in Chrome tools:
 - **Be patient with page loads.** LinkedIn can be slow. Wait for content to render before reading.
 - **Pagination.** Check at least 2-3 pages per search query.
 - **Rate limiting.** Don't click too rapidly. Pause between navigation actions.
-- **Reading JDs.** After clicking into a listing, scroll down and wait before trying to read the description. Use `get_page_text` first. If the JD doesn't render, try `javascript_tool` with `window.scrollTo(0, 1000)` then read again. Some promoted listings route externally and won't have JDs on LinkedIn — note these and move on.
+- **Reading JDs — LinkedIn lazy-loads job descriptions as an anti-bot measure.** The JD content is NOT in the initial DOM. You MUST follow this sequence to extract it:
+  1. Navigate to the job listing URL
+  2. Scroll past the header: `javascript_tool` with `window.scrollTo(0, 800)`
+  3. Wait 3-5 seconds for the content to render
+  4. Click the "...more" link/button to expand the full description (use `find` tool to locate it, then click)
+  5. NOW call `get_page_text` — the full JD will be present
+  If you skip the scroll+wait+expand steps, you'll only get header metadata and no description. This applies to ALL listings, not just promoted ones.
+- **Truly external listings.** Some listings route entirely off LinkedIn (career page apply only). If the JD still doesn't appear after the scroll+wait+expand sequence, note the listing with available metadata and move on.
 - **Never enter credentials.** If not logged in, stop and ask the user.
 
 ## Step 2: Company-First Search (Highest Priority)
 
-**This is the most valuable search.** Check target companies directly on LinkedIn.
+**This is the most valuable search.** Check target companies via LinkedIn AND their direct career pages.
 
 1. Read `master_targets.csv` and select 5 companies to check today:
    - Priority: highest `linkedin_connection_count` + `last_checked` is oldest or null + `application_status` is not "Dead"
    - Also rotate through any companies from supplemental pipeline lists
-2. For each company, navigate to their LinkedIn company page → Jobs tab (e.g., `linkedin.com/company/microsoft/jobs/`)
+2. **LinkedIn company page:** Navigate to their LinkedIn Jobs tab (e.g., `linkedin.com/company/microsoft/jobs/`)
 3. Read the page to see what roles are listed
 4. Look for roles matching the candidate's target level (Director, VP, SVP, CTO, Executive)
 5. For matching roles, extract: title, location, comp (if shown), job URL
-6. **Stale check:** Extract LinkedIn job ID from URL. IDs below 4,200,000,000 = flag as stale.
-7. **Dedup check:** Skip if job ID is already in the dedup set from Step 0.
-8. Click into promising listings to read the full JD
-9. Update `last_checked` in master_targets.csv for each company checked
+6. **Career page check:** If the company has a `career_page_url` in master_targets.csv, ALSO navigate to that URL and scan for matching roles. Career pages often have roles not posted on LinkedIn, and provide full JDs without lazy-loading issues.
+   - Read the career page, look for Director/VP/SVP/CTO roles in technology/engineering
+   - If the career page has a search function, use keywords like "director," "VP," "engineering," "technology"
+   - Extract job titles, locations, and direct apply URLs
+   - Add any new finds to the scoring pipeline alongside LinkedIn results
+7. **Stale check:** Extract LinkedIn job ID from URL. IDs below 4,200,000,000 = flag as stale.
+8. **Dedup check:** Skip if job ID is already in the dedup set from Step 0.
+9. Click into promising listings to read the full JD (follow the lazy-load extraction sequence from Chrome Browsing Tips)
+10. Update `last_checked` in master_targets.csv for each company checked
 
 ## Step 3: Keyword Searches
 

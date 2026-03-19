@@ -1,9 +1,8 @@
 {
   "name": "job-scout",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Automated LinkedIn job search with honest scoring, connection-first targeting, and ATS-focused tailoring briefs. Uses Claude in Chrome to browse LinkedIn, scores matches against your actual profile, and tells you the truth about your positioning.",
   "author": {
     "name": "Job Scout Contributors"
-  },
-  "keywords": ["job search", "LinkedIn", "career", "resume", "ATS", "job scout"]
+  }
 }
