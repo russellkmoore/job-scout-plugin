@@ -21,26 +21,19 @@ This module is import-only — it has no side effects and no CLI.
 
 MASTER_TARGETS_COLUMNS = [
     "company_name",            # Display name. Used as join key after normalization.
-    "pipeline_tier",           # 1=top priority, 2=mid, 3=watchlist. Empty if unrated.
     "industry",                # Free-text industry tag (e-commerce, SaaS, retail, etc.)
-    "location",                # HQ or primary office location (free text).
     "career_page_url",         # Direct URL to careers page. Used in Pass 1 of /scout-run.
     "ats_provider",            # Detected ATS: greenhouse|lever|workday|ashby|smartrecruiters|other|unknown
     "ats_board_url",           # If ATS is detected, the board URL (e.g. boards.greenhouse.io/acme)
     "connection_names",        # "; "-joined list of named LinkedIn connections at the company.
     "linkedin_connection_count",  # Integer count.
-    "warm_path",               # Y/N — has at least one connection senior enough to refer.
-    "already_applied",         # Y/N
-    "application_status",      # Free text — "Applied 2026-03-12 / no response", etc.
-    "roles_applied_for",       # Semicolon-joined list of role titles already pursued.
-    "fit_notes",               # Why this company matters (or doesn't).
-    "fit_score",               # 0-100 overall fit score (separate from per-role match score).
-    "what_they_do",            # One-line description.
+    "application_status",      # Free text — "Applied 2026-03-12 / no response", "Dead", etc.
+    "fit_notes",               # Why this company matters (or doesn't). Free text.
     "last_checked",            # ISO date the scout last looked at this company. Used to prioritize stale ones.
     "data_source",             # Where this row came from: linkedin_connections, user_csv, scout_discovered, etc.
 ]
 
-MASTER_TARGETS_VERSION = 2  # bumped from 1: added ats_provider, ats_board_url
+MASTER_TARGETS_VERSION = 3  # v3: trimmed dead-weight cols (pipeline_tier, location, warm_path, already_applied, roles_applied_for, fit_score, what_they_do). Keeps `notes` as user free-form column outside schema.
 
 
 # =====================================================================

@@ -93,21 +93,14 @@ def normalize_to_master(df, source_name):
     # in schema.py — values are aliases the user might have used.
     mappings = {
         'company_name': ['company_name', 'company', 'organization', 'employer', 'name'],
-        'pipeline_tier': ['pipeline_tier', 'tier', 'priority', 'rank'],
         'industry': ['industry', 'sector', 'vertical', 'category'],
-        'location': ['location', 'hq', 'headquarters', 'city', 'office_location'],
         'career_page_url': ['career_page_url', 'careers_url', 'url', 'website', 'career_page'],
         'ats_provider': ['ats_provider', 'ats', 'applicant_tracking_system'],
         'ats_board_url': ['ats_board_url', 'ats_url', 'job_board_url'],
         'connection_names': ['connection_names', 'contacts', 'connections'],
         'linkedin_connection_count': ['linkedin_connection_count', 'connection_count', 'connections_count'],
-        'warm_path': ['warm_path', 'warm_intro', 'referral'],
-        'already_applied': ['already_applied', 'applied'],
         'application_status': ['application_status', 'status', 'app_status'],
-        'roles_applied_for': ['roles_applied_for', 'roles', 'positions_applied'],
-        'fit_notes': ['fit_notes', 'notes', 'comments', 'what_they_do'],
-        'fit_score': ['fit_score', 'score', 'fit'],
-        'what_they_do': ['what_they_do', 'description', 'about'],
+        'fit_notes': ['fit_notes', 'notes', 'comments', 'what_they_do', 'description', 'about'],
         'last_checked': ['last_checked', 'last_check', 'checked_date'],
     }
 
@@ -182,23 +175,9 @@ def merge_duplicates(master_df):
                 # Combine sources
                 merged[col] = ", ".join(sorted(set(values)))
 
-            elif col in ['already_applied', 'warm_path']:
-                # Y wins over N
-                merged[col] = 'Y' if 'Y' in [v.upper() for v in values] else ('N' if values else '')
-
-            elif col in ['application_status', 'roles_applied_for', 'fit_notes']:
+            elif col in ['application_status', 'fit_notes']:
                 # Take the longest/most detailed entry
                 merged[col] = max(values, key=len) if values else ''
-
-            elif col == 'pipeline_tier':
-                # Take the lowest (highest priority) tier
-                nums = []
-                for v in values:
-                    try:
-                        nums.append(int(float(v)))
-                    except (ValueError, TypeError):
-                        pass
-                merged[col] = min(nums) if nums else ''
 
             else:
                 # Take first non-empty value
@@ -208,11 +187,10 @@ def merge_duplicates(master_df):
 
     result = pd.DataFrame(merged_rows, columns=MASTER_COLUMNS)
 
-    # Sort by connection count descending, then by pipeline tier
+    # Sort by connection count descending
     result['_sort_conns'] = pd.to_numeric(result['linkedin_connection_count'], errors='coerce').fillna(0)
-    result['_sort_tier'] = pd.to_numeric(result['pipeline_tier'], errors='coerce').fillna(999)
-    result = result.sort_values(['_sort_conns', '_sort_tier'], ascending=[False, True])
-    result = result.drop(columns=['_sort_conns', '_sort_tier'])
+    result = result.sort_values(['_sort_conns'], ascending=[False])
+    result = result.drop(columns=['_sort_conns'])
 
     return result
 

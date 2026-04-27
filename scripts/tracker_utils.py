@@ -280,6 +280,9 @@ def _write_tracker(filepath, rows):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     # Data rows
+    HYPERLINK_FONT = Font(color="0563C1", underline="single")  # Excel default hyperlink blue
+    TIER_FONT = Font(bold=True)
+
     for r_idx, row in enumerate(rows, 2):
         tier = str(row[6]).strip() if len(row) > 6 and row[6] else ""
         status = str(row[12]).strip() if len(row) > 12 and row[12] else ""
@@ -296,9 +299,13 @@ def _write_tracker(filepath, rows):
 
             if col == 6:  # Score — center
                 cell.alignment = Alignment(horizontal='center', vertical='top')
-            if col == 7:  # Tier — center + bold
+            elif col == 7:  # Tier — center + bold
                 cell.alignment = Alignment(horizontal='center', vertical='top')
-                cell.font = Font(bold=True)
+                cell.font = TIER_FONT
+            elif col == 10 and val and isinstance(val, str) and val.startswith(('http://', 'https://')):
+                # Job URL — make clickable hyperlink (blue + underline, native click)
+                cell.hyperlink = val
+                cell.font = HYPERLINK_FONT
 
     # Freeze + filter
     ws.freeze_panes = "A2"

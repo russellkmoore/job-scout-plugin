@@ -26,7 +26,11 @@ STATE_DIR = os.path.expanduser("~/.job-scout")
 STATE_PATH = os.path.join(STATE_DIR, "state.json")
 
 # Legacy fallback locations — checked in order if state.json is missing.
+# The scout/ subdirectory pattern is preferred when the user keeps personal
+# job-search materials (resumes, application folders) at the top level and
+# wants scout's working data confined to a subfolder.
 LEGACY_DATA_DIRS = [
+    "~/Documents/JobSearch/scout",
     "~/Documents/JobSearch",
     "~/Documents/JobScout",
 ]
