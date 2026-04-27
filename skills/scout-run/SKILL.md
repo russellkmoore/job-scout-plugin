@@ -1,11 +1,13 @@
 ---
-description: Run a daily job search — broad sourcing across LinkedIn, career pages, and other boards, with honest scoring and actionable per-match output
+name: scout-run
+description: Run a daily job search — broad sourcing across LinkedIn, career pages, and other boards, with honest scoring and actionable per-match output. Triggers when the user types `/scout-run` or asks to "run the job scout", "find me jobs", "do a daily job search", "check for new job matches".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite, mcp__Claude_in_Chrome__*
+version: 0.3.1
 ---
 
 Execute a Job Scout search run. The scout uses Claude in Chrome to perform a wide, deliberate search across company career pages, several job boards, and LinkedIn — scores matches honestly against the candidate's actual profile — and produces a daily report plus tracker update with **actionable** A-tier output (warm path, ATS keyword diff, outreach draft).
 
-**This command takes no arguments.** All configuration lives in `{data_dir}/config.json`. If you find yourself wanting to override scoring weights or query lists in a scheduled task, edit `config.json` instead.
+**This skill takes no arguments.** All configuration lives in `{data_dir}/config.json`. If you find yourself wanting to override scoring weights or query lists in a scheduled task, edit `config.json` instead.
 
 Before doing anything else:
 

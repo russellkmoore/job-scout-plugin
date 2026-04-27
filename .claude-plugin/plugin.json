@@ -1,6 +1,6 @@
 {
   "name": "job-scout",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Multi-source job search (career pages, ATS boards, Wellfound, Built In Seattle, YC Work at a Startup, HN Who is Hiring, LinkedIn) with honest scoring, connection-first targeting, and ATS-focused tailoring briefs. Uses Claude in Chrome to browse, scores matches against your actual profile, and tells you the truth about your positioning.",
   "author": {
     "name": "Job Scout Contributors"
