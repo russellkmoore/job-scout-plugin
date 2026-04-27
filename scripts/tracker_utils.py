@@ -31,15 +31,21 @@ except ImportError:
     print("ERROR: openpyxl not installed. Run: pip install openpyxl --break-system-packages", file=sys.stderr)
     sys.exit(1)
 
+# Allow running this script directly from the plugin root.
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
 
-# === CONSTANTS ===
+# Column schema lives in schema.py — single source of truth.
+from schema import (
+    TRACKER_COLUMNS as HEADERS,
+    TRACKER_COL_WIDTHS as COL_WIDTHS,
+    STALE_LINKEDIN_JOB_ID_THRESHOLD as STALE_JOB_ID_THRESHOLD,
+)
+
+
+# === FORMATTING CONSTANTS ===
 # These NEVER change. Every run uses exactly these values.
-
-HEADERS = [
-    "Date Found", "Job Title", "Company", "Location", "Comp Range",
-    "Score", "Tier", "Connections", "Match Notes", "Job URL",
-    "Resume Tailored", "Resume File", "Status", "Notes"
-]
 
 # Exact hex colors — same every run, no variation
 HEADER_FILL = PatternFill(start_color="2F5496", end_color="2F5496", fill_type="solid")
@@ -54,11 +60,6 @@ THIN_BORDER = Border(
     left=Side(style='thin'), right=Side(style='thin'),
     top=Side(style='thin'), bottom=Side(style='thin')
 )
-
-COL_WIDTHS = [12, 45, 20, 25, 20, 8, 6, 12, 40, 50, 14, 30, 16, 50]
-
-# LinkedIn job IDs below this threshold are likely 6+ months old
-STALE_JOB_ID_THRESHOLD = 4200000000
 
 
 def extract_job_id(url):

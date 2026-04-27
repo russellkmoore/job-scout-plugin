@@ -1,142 +1,271 @@
 ---
-description: Run a daily job search — browse LinkedIn, score matches, generate report
+description: Run a daily job search — broad sourcing across LinkedIn, career pages, and other boards, with honest scoring and actionable per-match output
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite, mcp__Claude_in_Chrome__*
 ---
 
-Execute a Job Scout search run. Browse LinkedIn using Claude in Chrome, find matches, score them, and produce a daily report + tracker update.
+Execute a Job Scout search run. The scout uses Claude in Chrome to perform a wide, deliberate search across company career pages, several job boards, and LinkedIn — scores matches honestly against the candidate's actual profile — and produces a daily report plus tracker update with **actionable** A-tier output (warm path, ATS keyword diff, outreach draft).
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/SKILL.md` to load the core skill knowledge.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/search-config.md` to load the search strategy and scoring rubric.
+**This command takes no arguments.** All configuration lives in `{data_dir}/config.json`. If you find yourself wanting to override scoring weights or query lists in a scheduled task, edit `config.json` instead.
 
-## Step 0: Load Context & Existing State
+Before doing anything else:
 
-Before doing anything else, read these files from the user's data directory. Check for config.json in this order: `~/Documents/JobSearch/config.json`, then `~/Documents/JobScout/config.json`. If neither exists, tell the user "Run /scout-setup first."
+- Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/SKILL.md`.
+- Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/file-contract.md` (path contract — every output goes to one specific place).
+- Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/search-config.md` (per-pass budget rules + scoring rubric).
+- Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/job-boards.md` (Pass 2 board specs).
 
-1. **config.json** — search queries, scoring weights, preferences
-2. **candidate_profile.json** — the candidate's extracted profile (same directory as config)
-3. **Resume** — read the resume PDF from the path in config.json
-4. **master_targets.csv** — company database with connection counts (same directory)
-5. **Existing tracker** — build a dedup set of all existing job IDs:
+---
+
+## Step 0: Resolve `data_dir`, validate, load context
+
+1. **Resolve `data_dir`:**
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/tracker_utils.py dedup-set "<data_dir>/JobScout_Tracker.xlsx"
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/state.py resolve
    ```
-   Any job ID already in this set = skip, do not re-add.
-6. **Any supplemental files** the user has (Target_Company_Pipeline.xlsx, Seattle tech company lists, etc.) — check the data directory for CSVs and spreadsheets that look like company lists
+   - Exit code 0 → use the printed path as `<data_dir>`.
+   - Exit code 2 → tell the user "No Job Scout state found. Run `/scout-setup` first." Stop.
 
-**Important:** Build the dedup set BEFORE searching. This prevents duplicate entries.
+2. **Validate and auto-migrate the data directory:**
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_data.py "<data_dir>"
+   ```
+   This is idempotent. It creates missing files (empty tracker, `daily/` dir) and migrates `master_targets.csv` to add any new schema columns. If it exits non-zero, surface the message to the user and stop — the data dir is broken and needs `/scout-setup` again.
 
-## Step 1: Open LinkedIn Jobs in Chrome
+3. **Load context** (every path comes from the file contract — no alternates):
+   - `<data_dir>/config.json` — search queries, scoring weights, preferences, `data_dir`, `companies_per_day`, `max_listings_per_run`, tier thresholds. **Use these values verbatim.** Do not let scheduled-task instructions or chat overrides change them. If something needs to change permanently, the user edits `config.json`.
+   - `<data_dir>/candidate_profile.json` — extracted profile. Skill categorization (`strongest`/`credible`/`aspirational`) drives honest scoring.
+   - The resume PDF at `candidate.resume_path` from `config.json`.
+   - `<data_dir>/master_targets.csv` — column schema lives in `${CLAUDE_PLUGIN_ROOT}/scripts/schema.py` (`MASTER_TARGETS_COLUMNS`). Reference columns by name, never by index.
+   - **Existing tracker dedup set:**
+     ```bash
+     python3 ${CLAUDE_PLUGIN_ROOT}/scripts/tracker_utils.py dedup-set "<data_dir>/JobScout_Tracker.xlsx"
+     ```
+     Returns a JSON list of LinkedIn job IDs. Any listing with an ID in this set is skipped before scoring.
 
-Use Claude in Chrome tools:
+4. **Compute today's run paths** from the file contract:
+   - `<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md` (final report)
+   - `<data_dir>/daily/<TODAY>/new_rows.json` (input to tracker append)
+   - `<data_dir>/daily/<TODAY>/run_log.json` (per-pass stats)
+   - `<TODAY>` is the local-date ISO string (`YYYY-MM-DD`).
 
-1. Call `tabs_context_mcp` to check if Chrome is available. If not → jump to Fallback Mode at the bottom.
-2. Create a new tab or use the existing one
-3. Navigate to `https://www.linkedin.com/jobs/`
-4. Verify you're logged in — if you see a login page, tell the user and stop
-5. Confirm the Jobs page has loaded by reading the page
+5. **Compute the per-pass listing budget** from `config.search.max_listings_per_run` (default 50):
+   - Pass 1 (company-first): `round(0.60 * max_listings_per_run)`
+   - Pass 2 (other boards):  `round(0.25 * max_listings_per_run)`
+   - Pass 3 (LinkedIn keyword): `max_listings_per_run - (Pass 1 + Pass 2)`
+   Each pass must stop adding listings to the candidate set when it hits its own budget — even if more would qualify. Quality over quantity; budgets enforce focus.
 
-### Chrome Browsing Tips (IMPORTANT)
-- **Be patient with page loads.** LinkedIn can be slow. Wait for content to render before reading.
-- **Pagination.** Check at least 2-3 pages per search query.
-- **Rate limiting.** Don't click too rapidly. Pause between navigation actions.
-- **Reading JDs — LinkedIn lazy-loads job descriptions as an anti-bot measure.** The JD content is NOT in the initial DOM. You MUST follow this sequence to extract it:
-  1. Navigate to the job listing URL
-  2. Scroll past the header: `javascript_tool` with `window.scrollTo(0, 800)`
-  3. Wait 3-5 seconds for the content to render
-  4. Click the "...more" link/button to expand the full description (use `find` tool to locate it, then click)
-  5. NOW call `get_page_text` — the full JD will be present
-  If you skip the scroll+wait+expand steps, you'll only get header metadata and no description. This applies to ALL listings, not just promoted ones.
-- **Truly external listings.** Some listings route entirely off LinkedIn (career page apply only). If the JD still doesn't appear after the scroll+wait+expand sequence, note the listing with available metadata and move on.
-- **Never enter credentials.** If not logged in, stop and ask the user.
+---
 
-## Step 2: Company-First Search (Highest Priority)
+## Step 1: Bring up Chrome
 
-**This is the most valuable search.** Check target companies via LinkedIn AND their direct career pages.
+1. Call `mcp__Claude_in_Chrome__tabs_context_mcp` to verify Chrome is connected with the extension. If it returns nothing usable, jump to **Fallback Mode** at the bottom.
+2. Navigate to `https://www.linkedin.com/feed/` to confirm login. If you see a login page, stop and tell the user.
+3. Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/chrome-setup.md` for the LinkedIn JD lazy-load extraction sequence — every LinkedIn listing JD requires the scroll → wait → click "...more" → `get_page_text` flow. Skipping steps gets you only metadata.
 
-1. Read `master_targets.csv` and select 5 companies to check today:
-   - Priority: highest `linkedin_connection_count` + `last_checked` is oldest or null + `application_status` is not "Dead"
-   - Also rotate through any companies from supplemental pipeline lists
-2. **LinkedIn company page:** Navigate to their LinkedIn Jobs tab (e.g., `linkedin.com/company/microsoft/jobs/`)
-3. Read the page to see what roles are listed
-4. Look for roles matching the candidate's target level (Director, VP, SVP, CTO, Executive)
-5. For matching roles, extract: title, location, comp (if shown), job URL
-6. **Career page check:** If the company has a `career_page_url` in master_targets.csv, ALSO navigate to that URL and scan for matching roles. Career pages often have roles not posted on LinkedIn, and provide full JDs without lazy-loading issues.
-   - Read the career page, look for Director/VP/SVP/CTO roles in technology/engineering
-   - If the career page has a search function, use keywords like "director," "VP," "engineering," "technology"
-   - Extract job titles, locations, and direct apply URLs
-   - Add any new finds to the scoring pipeline alongside LinkedIn results
-7. **Stale check:** Extract LinkedIn job ID from URL. IDs below 4,200,000,000 = flag as stale.
-8. **Dedup check:** Skip if job ID is already in the dedup set from Step 0.
-9. Click into promising listings to read the full JD (follow the lazy-load extraction sequence from Chrome Browsing Tips)
-10. Update `last_checked` in master_targets.csv for each company checked
+Never enter credentials. Never click anything that looks like a payment, profile change, or message to a human.
 
-## Step 3: Keyword Searches
+---
 
-Run search queries from config.json. Use Boolean operators (OR, quoted phrases) for precision. For each query:
+## Step 2: Pass 1 — Company-first deep-dive (≈60% of budget)
 
-1. Navigate to LinkedIn Jobs search with the keywords
-2. Apply filters: **Date Posted** = Past 24 hours (daily) or Past week (first run), **Experience Level** = Director / Executive
-3. Read the search results page — extract titles, companies, locations, comp ranges, and job URLs from the listing cards
-4. **Stale check** and **dedup check** every listing before investigating further
-5. Click into new, non-stale listings to read full JDs
-6. Read at least 2-3 pages of results per query
-7. If a query returns only irrelevant results (wrong domain, wrong level), note it and move on — don't waste time scrolling through noise
+This is the highest-signal pass. Pick `companies_per_day` companies (default 8) from `master_targets.csv`:
 
-## Step 4: Score & Rank
+- Sort: `linkedin_connection_count` desc, then `last_checked` ascending (oldest first), then `application_status` (skip those with `Dead`).
+- Take the top `companies_per_day` rows.
 
-For each new listing found, score using the 5-category weighted rubric from `references/search-config.md`:
+For each selected company, hit sources in this order and stop early if you've found qualifying roles:
 
-| Category | Weight | Key Question |
-|----------|--------|-------------|
-| Connection Leverage | 30 | Does the candidate know anyone here? Check master_targets.csv. |
-| Experience Match | 25 | Does the JD describe what they've actually done? |
-| Domain Fit | 20 | Is this in their industry? |
-| Compensation | 15 | Does it pay enough? |
-| Realistic Shot | 10 | Would this company actually call them? |
+1. **Career page** (`career_page_url`) — read directly. Career pages give full JDs without lazy-loading and often list roles before LinkedIn does.
+2. **ATS board** (`ats_board_url`, if populated) — Greenhouse/Lever/Workday/Ashby. ATS pages have richer filter and structured data.
+   - If `ats_provider` is empty but `career_page_url` looks like `boards.greenhouse.io/X`, `jobs.lever.co/X`, `myworkdayjobs.com`, or `<company>.ashbyhq.com`, populate `ats_provider` and `ats_board_url` in `master_targets.csv` for next time.
+3. **LinkedIn company jobs tab** (`linkedin.com/company/<slug>/jobs/`) — last resort within Pass 1. Lower signal, but catches roles other sources miss.
 
-Apply bonus/penalty adjustments from the rubric. Assign tiers: A (≥75), B (≥55), C (≥40), Skip (<40).
+For each promising listing:
+- Extract: title, location, comp range (if shown), apply URL (prefer the company-direct URL over a LinkedIn redirect), JD text (full).
+- Run dedup check against the set from Step 0.
+- Run stale check: LinkedIn IDs `< 4_200_000_000` are likely 6+ months recycled — flag, don't drop.
+- Add to the candidate set if not duplicate. **Stop adding to Pass 1 candidate set when its budget is reached.**
+- Update `last_checked = <TODAY>` in `master_targets.csv` for the company (whether or not you found a match — the visit counts).
 
-**Hard cap:** Max 10 A-tier per run.
+If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or Pass 3. Under-budget here means there genuinely wasn't enough company-side activity worth tracking; Passes 2 and 3 won't fix that.
 
-For each A-tier match, read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/tailoring-guide.md` and generate a specific tailoring brief.
+---
 
-## Step 5: Generate Outputs
+## Step 3: Pass 2 — Other job boards (≈25% of budget)
 
-### Daily Report
-Create `<data_dir>/daily/YYYY-MM-DD/JobScout_Report_YYYY-MM-DD.md` with:
-- Run summary (searches executed, companies checked, listings found, dupes skipped, stale skipped)
-- A-tier matches with full scoring breakdown, connection info, tailoring brief
-- B-tier matches with shorter notes
-- Stale/expired listings skipped (table)
-- Companies checked with no current matches
-- **Honest Notes section (MANDATORY)** — at least one observation about patterns, positioning, what's working or not
+Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/job-boards.md` for per-board URL patterns, filters, and parsing gotchas.
 
-### Tracker Update
-Write new rows to JSON, then append via tracker_utils.py:
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/tracker_utils.py append "<data_dir>/JobScout_Tracker.xlsx" "/tmp/scout_new_rows.json"
+For each board, allocate roughly:
+- Built In Seattle: ~33% of Pass 2 budget
+- Wellfound: ~28%
+- YC Work at a Startup: ~20%
+- HN "Who is hiring" (current month thread): ~20%
+
+Hit them in that order. Skip a board if:
+- Built In Seattle / Wellfound / YC: no listings match the candidate's level filters after the prescribed filter setup.
+- HN: the most recent thread is older than 5 weeks (the new thread hasn't dropped yet).
+
+For each listing kept:
+- Extract per the board's spec in `job-boards.md`.
+- Capture the **direct apply URL** — never the board's listing page (the apply URL is what the user will click in the morning).
+- Cross-board dedup: normalize company name + role title, drop second occurrences. Prefer listings with company-direct apply URLs.
+- Run dedup against the tracker job-ID set (only useful for listings that came back through LinkedIn elsewhere).
+- Add to candidate set until the Pass 2 budget is hit.
+
+---
+
+## Step 4: Pass 3 — LinkedIn keyword search (≈15% of budget, last)
+
+LinkedIn keyword search is the lowest-signal pass and is intentionally last. Use `config.search.queries` and `config.search.underutilized_asset_queries` verbatim.
+
+For each query (in config order, primary first then underutilized):
+1. Navigate to LinkedIn Jobs search with the query string.
+2. Apply filters: **Date Posted = Past 24 hours** (daily mode; **Past week** for the first run), **Experience Level = Director or Executive**.
+3. Read the first page of results. Extract: title, company, location, comp range, job URL.
+4. Stale check + dedup check. Skip on hit.
+5. For non-stale, non-duplicate listings, click in and run the lazy-load JD extraction sequence to get the full description.
+6. Add to candidate set until the Pass 3 budget is hit.
+7. **Stop the query early** if the first page is dominated by listings the scout has already seen, or by jobs in obviously wrong domains. LinkedIn's relevance is poor; don't punch through 3 pages of noise.
+
+---
+
+## Step 5: Score every candidate listing
+
+For each listing in the combined candidate set:
+
+1. **Score** with the 5-category weighted rubric from `references/search-config.md` and `references/scoring-rubric.md`:
+   | Category | Weight (config-driven) | Key question |
+   |---|---|---|
+   | Connection leverage | `connection_weight` | Who do we know there? Cross-reference `connection_names` in `master_targets.csv`. |
+   | Experience match | `experience_match_weight` | Does the JD describe things in the candidate's `strongest` skills? Penalize if it leans on `aspirational`. |
+   | Domain fit | `domain_fit_weight` | Industry/sector overlap with `industries_preferred`? |
+   | Compensation | `compensation_weight` | Stated comp range vs `salary_minimum`. |
+   | Realistic shot | `realistic_shot_weight` | Credential bias, applicant pool size, recency, repost count. |
+2. Apply rubric bonuses/penalties.
+3. Assign tier from `config.scoring`:
+   - A: `score >= tier_a_threshold`
+   - B: `tier_b_threshold <= score < tier_a_threshold`
+   - C: anything below `tier_a_threshold` that still scored — keep for visibility, don't go deep.
+4. **Hard cap: 10 A-tier listings per run.** If more qualify, raise the effective A threshold for this run only (do NOT edit `config.json`) and demote excess A-tier to B-tier with a note "would-be-A, raised threshold this run."
+
+---
+
+## Step 6: Build the daily report
+
+Write `<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md`. Structure:
+
+### Header
+- Run date.
+- One-paragraph executive summary: how many companies checked, how many listings found, A/B/C/skip counts, dupes/stale skipped.
+- Per-pass breakdown (Pass 1 / Pass 2 / Pass 3): listings found, kept after dedup+stale, scored.
+
+### A-tier (each one is "actionable")
+For every A-tier listing, render this block — every field is required:
+
+```
+### <Company> — <Role Title>
+- **Score:** <total> (Conn <c>, Exp <e>, Dom <d>, Comp <co>, Real <r>; bonuses/penalties: <list>)
+- **Apply:** <direct apply URL>
+- **Comp:** <range or "not stated">
+- **Location:** <location / remote status>
+- **Source:** <career_page | ats:<provider> | linkedin | builtin | wellfound | yc | hn>
+- **Warm path:** <named contact from connection_names + their title at the company, OR "no warm path">
+- **ATS keyword diff (don't fabricate):**
+  - Missing from resume: <up to 8 keywords pulled from JD that candidate genuinely has but hasn't surfaced>
+  - Worth re-ordering: <bullets to promote in resume>
+  - Don't add (aspirational): <keywords from JD that candidate doesn't actually have>
+- **Outreach draft** (to the warm-path contact, if one exists):
+  > <2-3 sentence message; reference a specific connection point — shared company, shared cohort, mutual contact name>
+- **Recommended resume version:** <filename from <data_dir>/Resumes/, or "use base resume">
+- **Honest read:** <one or two lines on whether this is genuinely worth applying — including whether credential bias or applicant volume makes it a long shot>
 ```
 
-### Master Targets Update
-Update `last_checked` dates. If the scout discovers a new company worth tracking, append it with `data_source = "scout_discovered"`.
+### B-tier (lighter)
+For each B-tier listing, render:
+```
+### <Company> — <Role Title>
+- **Score:** <total>
+- **Apply:** <URL>
+- **Warm path:** <name + title, or "no warm path">
+- **Why B and not A:** <one specific reason — "no warm path", "comp tops out below minimum", "aspirational match on AI strategy">
+```
 
-## Step 6: Present Results
+### C-tier (table only, no detail)
+A simple table: Company | Role | Score | Apply URL.
 
-Summarize to the user:
-- How many new listings found
-- How many A-tier / B-tier
-- Top match with score and connection info
-- Link to the full report
-- Any honest observations
+### Stale / skipped
+A table of stale-flagged or otherwise-deferred listings, with the reason.
 
-If no A-tier matches were found, say so directly. Don't inflate B-tier matches.
+### Companies checked, no current matches
+Bullet list with the companies from Pass 1 that didn't yield anything — useful for the user's situational awareness.
 
-## Fallback Mode (No Chrome)
+### Honest notes (MANDATORY)
+At least one paragraph. Patterns observed, what's working, what's not. Do not soften. If results were thin, say results were thin and why.
 
-If Claude in Chrome is unavailable:
-1. Generate all search queries as clickable LinkedIn URLs
-2. List the target companies with their careers page URLs from master_targets.csv
-3. Ask the user to paste JD text for any interesting listings they find
-4. Score pasted JDs using the same rubric
-5. Generate tailoring briefs for A-tier matches
-6. Still produce the report and tracker update
+### Generate-on-demand packets
+Final line of the report:
+> To generate full packets (tailored resume + outreach drafts) for A-tier matches, reply with: `pack <id1> <id2> ...` using the IDs from the Apply URLs.
+
+---
+
+## Step 7: Update the tracker
+
+Write `<data_dir>/daily/<TODAY>/new_rows.json` — a JSON array of objects using the keys in `TRACKER_JSON_KEYS` from `${CLAUDE_PLUGIN_ROOT}/scripts/schema.py`. One object per A/B/C tier listing surfaced this run. Then:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/tracker_utils.py append \
+  "<data_dir>/JobScout_Tracker.xlsx" \
+  "<data_dir>/daily/<TODAY>/new_rows.json"
+```
+
+The script handles dedup, stale flagging, and color formatting deterministically. Capture stdout (a JSON summary) into `run_log.json`.
+
+---
+
+## Step 8: Update master_targets.csv
+
+- Update `last_checked = <TODAY>` for every company you visited in Pass 1.
+- For any newly discovered company worth tracking (Pass 2 or Pass 3 surfaced a high-quality role), append a row with:
+  - `data_source = "scout_discovered"`
+  - `last_checked = <TODAY>`
+  - `connection_names`, `linkedin_connection_count` left empty unless you can fill them
+  - `fit_notes` = the role title that triggered discovery + score
+- Persist by overwriting `master_targets.csv`. Schema must match `MASTER_TARGETS_COLUMNS` from `schema.py`.
+
+---
+
+## Step 9: Summarize to the user (chat output)
+
+After writing files, summarize in chat:
+- Counts: companies checked, listings scored, A / B / C, skipped (dupe / stale).
+- Top match: company, role, score, warm-path status, apply URL.
+- Link to the full report: `[View today's report](file://<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md)`.
+- One honest observation pulled from the report's "Honest notes" section.
+
+If zero A-tier matches were found, **say so directly**. Do not promote B-tier to make the run feel more productive. The user trusts the scout because it doesn't inflate.
+
+---
+
+## On-demand: generate A-tier packet
+
+If the user replies with `pack <id1> <id2> ...` (or just identifies an A-tier match they want packaged):
+
+For each match, create `<data_dir>/daily/<TODAY>/packets/<Company>_<Role>/`:
+- `jd.md` — the full JD text.
+- `tailored_resume.docx` — built from the recommended resume version with ATS diff applied. Use the `docx` skill if available. **Never fabricate skills**: only re-order, re-word, and surface things the candidate already has.
+- `ats_diff.md` — the diff that informed the tailored resume.
+- `outreach_draft.md` — finalized outreach message, ready to copy-paste.
+
+After generation, present a single chat link to the packet folder.
+
+---
+
+## Fallback Mode (Chrome unavailable)
+
+If Step 1 confirms Chrome isn't connected:
+
+1. Generate clickable URLs for every Pass 1 source (career page, ATS board, LinkedIn company jobs) and every Pass 2 board search.
+2. Generate clickable LinkedIn search URLs for every query in `config.search.queries`.
+3. Tell the user: "Chrome's not connected — paste any JD text from listings you find interesting and I'll score them."
+4. As the user pastes JDs, score with the same rubric, surface as A/B/C just like a normal run, and write to the same daily report path.
+5. Tracker append still happens for whatever was scored.

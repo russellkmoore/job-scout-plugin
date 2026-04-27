@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "created": "",
   "updated": "",
   "data_dir": "~/Documents/JobSearch",
@@ -27,9 +27,21 @@
 
   "search": {
     "queries": [],
+    "underutilized_asset_queries": [],
     "target_companies_from_master": true,
     "companies_per_day": 5,
-    "max_listings_per_run": 30
+    "max_listings_per_run": 30,
+    "pass_budgets": {
+      "company_first_pct": 0.60,
+      "other_boards_pct": 0.25,
+      "linkedin_keyword_pct": 0.15
+    },
+    "pass2_boards": {
+      "built_in_seattle": true,
+      "wellfound": true,
+      "yc_work_at_a_startup": true,
+      "hn_who_is_hiring": true
+    }
   },
 
   "scoring": {

@@ -26,26 +26,13 @@ except ImportError:
     print("ERROR: pandas not installed. Run: pip install pandas --break-system-packages", file=sys.stderr)
     sys.exit(1)
 
+# Allow running this script directly from the plugin root.
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
 
-# Master schema — every output row has exactly these columns
-MASTER_COLUMNS = [
-    "company_name",
-    "pipeline_tier",
-    "industry",
-    "location",
-    "career_page_url",
-    "connection_names",
-    "linkedin_connection_count",
-    "warm_path",
-    "already_applied",
-    "application_status",
-    "roles_applied_for",
-    "fit_notes",
-    "fit_score",
-    "what_they_do",
-    "last_checked",
-    "data_source"
-]
+# Single source of truth — see scripts/schema.py.
+from schema import MASTER_TARGETS_COLUMNS as MASTER_COLUMNS
 
 
 def normalize_company_name(name):
@@ -102,13 +89,16 @@ def normalize_to_master(df, source_name):
     col_map = {}
     cols_lower = {c.strip().lower().replace(' ', '_'): c for c in df.columns}
 
-    # Try to map known columns
+    # Try to map known columns. Keys MUST match MASTER_TARGETS_COLUMNS
+    # in schema.py — values are aliases the user might have used.
     mappings = {
         'company_name': ['company_name', 'company', 'organization', 'employer', 'name'],
         'pipeline_tier': ['pipeline_tier', 'tier', 'priority', 'rank'],
         'industry': ['industry', 'sector', 'vertical', 'category'],
         'location': ['location', 'hq', 'headquarters', 'city', 'office_location'],
         'career_page_url': ['career_page_url', 'careers_url', 'url', 'website', 'career_page'],
+        'ats_provider': ['ats_provider', 'ats', 'applicant_tracking_system'],
+        'ats_board_url': ['ats_board_url', 'ats_url', 'job_board_url'],
         'connection_names': ['connection_names', 'contacts', 'connections'],
         'linkedin_connection_count': ['linkedin_connection_count', 'connection_count', 'connections_count'],
         'warm_path': ['warm_path', 'warm_intro', 'referral'],

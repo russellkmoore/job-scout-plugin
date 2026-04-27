@@ -1,122 +1,149 @@
 # Search Configuration
 
-## Candidate Profile Summary
+The scout runs a wide, deliberate search every day. **Three passes, fixed budgets, sources ordered from highest to lowest signal.** This file describes the strategy. The actual queries, weights, and thresholds live in `<data_dir>/config.json` — never inline anywhere else.
 
-Loaded from `candidate_profile.json` at runtime. The config below provides the search strategy framework — the candidate's actual data is injected from their setup files.
+---
 
-### Reality Check
-This search system must be brutally honest about fit — no wishful thinking. Prioritize roles where:
-- The candidate has LinkedIn connections at the company (this is the #1 predictor of getting an interview)
-- The role matches their proven experience, not aspirational positioning
-- The JD doesn't require credentials they don't have
+## Reality check
 
-## Search Queries
+This search system is brutally honest about fit — no wishful thinking. Prioritize roles where:
+- The candidate has named LinkedIn connections at the company (warm path = the #1 predictor of getting an interview).
+- The role matches their **`strongest`** skills from `candidate_profile.json`, not aspirational positioning.
+- The JD doesn't require credentials they don't have.
 
-Run these in order. Adapt keywords based on the candidate's `candidate_profile.json` strongest skills.
+If a run produces no A-tier matches, the report says so. The scout does not promote B-tier to make a thin run feel productive.
 
-### Query 1: Primary Sweet Spot
-- **Keywords:** `VP technology [candidate's primary domain]`
-- **Location:** Based on config.json preferences
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past 24 hours (daily) / Past week (first run)
+---
 
-### Query 2: Engineering Leadership + Domain
-- **Keywords:** `"director of engineering" OR "VP engineering" [candidate's domain] OR platform`
-- **Location:** Based on config.json
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past 24 hours (daily) / Past week (first run)
-- **Note:** Use OR operators to broaden without losing relevance.
+## Three-pass search strategy
 
-### Query 3: CTO at Growth Companies
-- **Keywords:** `CTO [candidate's domain] OR SaaS OR platform`
-- **Location:** Based on config.json
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past 24 hours (daily) / Past week (first run)
+`/scout-run` allocates `config.search.max_listings_per_run` (default 50) across three passes:
 
-### Query 4: Transformation / Modernization
-- **Keywords:** `VP "digital transformation" OR "platform modernization" technology`
-- **Location:** Based on config.json
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past 24 hours (daily) / Past week (first run)
+| Pass | Source | Budget | Why |
+|---|---|---|---|
+| 1 | Company career page → ATS board → LinkedIn company jobs | **~60%** | Highest signal. Career pages list roles before LinkedIn. ATS boards (Greenhouse/Lever/Workday/Ashby) have structured data and full JDs. |
+| 2 | Built In Seattle, Wellfound, YC Work at a Startup, HN "Who is hiring" | **~25%** | Curated boards with niches LinkedIn buries (founder/startup, local, technical leadership). |
+| 3 | LinkedIn keyword search | **~15%, last** | Lowest signal. Recycled listings, AI-driven irrelevance. Useful as a sweep, not a primary source. |
 
-### Query 5: Domain Intersection
-- **Keywords:** Build from candidate's credible + strongest skill intersections
-- **Location:** Based on config.json
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past 24 hours (daily) / Past week (first run)
+**Budget formula** (in `commands/scout-run.md`):
+- Pass 1 = `round(0.60 * max_listings_per_run)`
+- Pass 2 = `round(0.25 * max_listings_per_run)`
+- Pass 3 = `max_listings_per_run − (Pass 1 + Pass 2)`
 
-### Query 6: Managed Services / Service Leadership
-- **Keywords:** `VP "managed services" OR "service delivery" technology`
-- **Location:** Based on config.json
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past 24 hours (daily) / Past week (first run)
+If a pass finishes under-budget, **do not roll over** to later passes. Under-budget means there genuinely wasn't enough qualifying activity at that source — adding more LinkedIn keyword noise won't fix it.
 
-### Query 7: Target Companies (rotate 3-5 per day from master list)
+---
 
-**IMPORTANT:** Before running keyword searches, always check the Target Company list first:
+## Pass 1 — Company-first deep-dive
 
-1. Read `master_targets.csv` and select companies with the highest connection counts that haven't been checked recently
-2. Also check any supplemental company lists the candidate provided during setup (pipeline spreadsheets, saved company lists, etc.)
-3. For each target company, navigate directly to their LinkedIn company page → Jobs tab
-4. Look for roles matching the candidate's target level
+**The most valuable pass. Spend the most time here.**
 
-**Priority order for company-specific searches:**
-1. Companies where the candidate has 3+ named connections (warm path = highest ROI)
-2. Companies on any pipeline/target list the candidate provided
-3. Domain-specific companies (commerce platforms, SaaS, etc.)
-4. Underutilized asset companies (defense/intelligence if clearance, APAC if language skills, etc.)
+1. Read `<data_dir>/master_targets.csv`.
+2. Sort: `linkedin_connection_count` desc, then `last_checked` ascending (oldest first), then exclude `application_status = "Dead"`.
+3. Take the top `config.search.companies_per_day` rows (default 8 in older configs, default 5 in template).
+4. For each company:
+   - **Career page** (`career_page_url`). Direct, full JDs.
+   - **ATS board** (`ats_board_url`, if populated). If empty, detect from `career_page_url` redirect target — `boards.greenhouse.io/X`, `jobs.lever.co/X`, `myworkdayjobs.com/...`, `<company>.ashbyhq.com` — and populate `ats_provider` + `ats_board_url` for next time.
+   - **LinkedIn company jobs tab** (`linkedin.com/company/<slug>/jobs/`). Last resort within Pass 1.
+5. Update `last_checked = <TODAY>` for every company visited.
 
-### Query 8: Underutilized Asset Search
-- **Keywords:** Based on candidate's `unique_differentiators` from profile
-- **Location:** Broader (may include DC/Virginia for defense, international for language skills)
-- **Experience Level:** Director, Executive
-- **Date Posted:** Past week
-- **Also suggest:** Specialized job boards if relevant (ClearanceJobs, AngelList, Built In, etc.)
+**Priority order within Pass 1** (when more candidates than budget):
+1. Companies with 3+ named connections (warm path likely).
+2. Companies on the user's pipeline list (`pipeline_tier <= 2`).
+3. Companies in `industries_preferred` from config.
+4. Companies with detected ATS providers (richer data).
 
-## Stale Listing Detection
+---
 
-Before adding any job to the report, check:
-- Has the candidate already applied to this company? (check master_targets.csv `already_applied` and `application_status`)
-- Extract the LinkedIn job ID from the URL. IDs below 4,200,000,000 are likely 6+ months old → flag as stale
-- Was the job posted more than 30 days ago? (likely stale/reposted)
-- Has the job been reposted multiple times? (flag as potentially unrealistic expectations)
-- If "Over 200 applicants" and posted weeks ago → deprioritize, window has likely passed
+## Pass 2 — Other job boards
 
-**Stale listings should NOT be scored or included in A/B tiers.** List them in a separate section.
+See `references/job-boards.md` for the URL patterns, filter recipes, parsing gotchas, and per-board signal notes for each of:
 
-## Scoring Rubric
+- **Built In Seattle** — local, comp-transparent, executive filter.
+- **Wellfound** — founder/startup, equity-included.
+- **YC Work at a Startup** — YC portfolio, requires login for full JDs.
+- **HN "Who is Hiring"** — first-of-month thread; raw text, careful parsing.
 
-| Category | Weight | What to evaluate |
-|----------|--------|-----------------|
-| **Connection Leverage** | 30 pts | Does the candidate have LinkedIn connections at this company? 1-2 connections = 15 pts. 3-5 = 20 pts. 6+ = 25 pts. Someone who could refer = 30 pts. No connections = 0 pts. THIS IS THE MOST IMPORTANT FACTOR. |
-| **Experience Match** | 25 pts | Does the JD describe what the candidate has actually done? Deduct heavily if JD requires credentials they don't have. |
-| **Domain Fit** | 20 pts | Is this in the candidate's industry sweet spot? |
-| **Compensation** | 15 pts | Is total comp likely at or above their minimum? Full points if clearly above, partial if range includes it, zero if below. |
-| **Realistic Shot** | 10 pts | Gut check: would this company actually interview this person? Consider competition level, credential screening, etc. |
+Within Pass 2, the rough sub-budget is:
+- Built In Seattle ~33%
+- Wellfound ~28%
+- YC Work at a Startup ~20%
+- HN Who is Hiring ~20%
 
-### Bonus Points
-- +10 warm introduction possible (named connection who could refer)
-- +5 role mentions founder/startup/entrepreneurial experience as a plus
-- +5 role mentions military veteran preference (if applicable)
-- +5 company is on the candidate's target pipeline list
-- +3 role involves building a team from scratch
+Skip a board if its prescribed filter setup yields nothing matching the candidate's level/comp constraints — don't pad.
 
-### Penalty Points
-- -15 requires PhD, elite MBA, or deep ML research background (unless candidate has these)
-- -10 clearly individual contributor role with no leadership component
-- -10 JD language suggests they want someone from FAANG/Big 3 consulting specifically
-- -5 role has been reposted multiple times
+**Cross-board dedup**: normalize company name + role title; prefer the listing with the most direct apply URL (company ATS > Built In > Wellfound > LinkedIn).
 
-### Match Tiers
-- **A-tier (75-100):** Strong match + connection leverage — prioritize and tailor resume
-- **B-tier (55-74):** Decent match — include in report, worth applying especially if connections exist
-- **C-tier (40-54):** Stretch but possible — note in report briefly
-- **Below 40:** Skip
+---
 
-**Hard cap:** Never more than 10 A-tier matches per run.
+## Pass 3 — LinkedIn keyword search
 
-## Resume Tailoring Guidelines
+**Last. Smallest budget. Stop early on noise.**
 
-When tailoring for A-tier matches, lead with what matches the JD. Generate specific, actionable briefs — not generic advice. See `references/tailoring-guide.md` for the full framework.
+For each query in `config.search.queries` (primary first), then `config.search.underutilized_asset_queries`:
 
-Key principle: every tailoring instruction should name a specific bullet, section, or phrase on the resume. "Emphasize your leadership" is never acceptable. "Move the $X revenue bullet to position 1 under the [Company] section" is.
+1. Navigate to LinkedIn Jobs search with the query.
+2. Filters: **Date Posted = Past 24 hours** (daily) or **Past week** (first run after a gap). **Experience Level = Director or Executive**.
+3. Read page 1 of results. Extract title, company, location, comp range, job URL.
+4. Stale check + dedup check.
+5. For non-stale, non-duplicate listings, click in and run the lazy-load JD extraction sequence (see `chrome-setup.md`).
+6. **Stop the query early** if page 1 is dominated by listings already in the tracker, or by jobs in obviously wrong domains. LinkedIn relevance is poor — don't punch through three pages of noise hunting for one match.
+
+Boolean operators work better than space-separated terms. Quoted phrases are essential for compound titles. Note: the `f_C` company filter URL parameter is silently ignored when keywords contain `OR` — don't rely on it.
+
+---
+
+## Stale listing detection
+
+LinkedIn job ID `< 4_200_000_000` → flag as likely 6+ months recycled.
+
+Other stale signals:
+- "Posted X weeks ago" (more than ~3 weeks) → consider stale.
+- "Over 200 applicants" + posted weeks ago → window has passed.
+- Listing has been reposted multiple times → flag as potentially-unrealistic expectations.
+- Company already in `master_targets.csv` with `application_status` containing `"Dead"`.
+
+`tracker_utils.py append` flags stale listings automatically (gray fill, `Status = "Stale — Verify"`). They go in the report's "Stale / skipped" section, not in the A/B/C tiers.
+
+---
+
+## Scoring rubric
+
+Defaults below. **Actual weights at runtime come from `config.scoring`.** Override in `config.json`, never in scheduled-task instructions or chat overrides.
+
+| Category | Default weight | What to evaluate |
+|---|---|---|
+| **Connection Leverage** | 30 | Named LinkedIn connections at the company. 1–2 = 15. 3–5 = 20. 6+ = 25. Someone senior enough to refer = 30. None = 0. |
+| **Experience Match** | 25 | Does the JD describe things in the candidate's `strongest` skills? Penalize heavily if the role hangs on `aspirational`. Deduct for credential gaps. |
+| **Domain Fit** | 20 | Industry sweet spot vs `industries_preferred` from config. |
+| **Compensation** | 15 | Stated comp range vs `salary_minimum`. Full points if clearly above, partial if range includes it, zero if below. |
+| **Realistic Shot** | 10 | Would the company actually interview this person? Credential bias, applicant volume, repost count. |
+
+### Bonus points
+- +10 warm introduction possible (named connection who could refer).
+- +5 role values founder/startup/entrepreneurial experience.
+- +5 role mentions military veteran preference (if applicable).
+- +5 company on the candidate's target pipeline list.
+- +3 role involves building a team from scratch.
+
+### Penalty points
+- −15 requires PhD, elite MBA, or deep ML research (unless candidate has these).
+- −10 clearly IC role with no leadership.
+- −10 JD targets FAANG / Big 3 consulting backgrounds specifically.
+- −5 reposted multiple times.
+
+### Tier thresholds (defaults — config-overridable)
+- **A-tier (≥ `tier_a_threshold`, default 75):** Prioritize. Generate inline ATS keyword diff + outreach draft. Eligible for on-demand packet.
+- **B-tier (≥ `tier_b_threshold`, default 55):** Include in report with the "Why B and not A" line.
+- **C-tier (≥ 40):** Table only, no detail.
+- **Skip (< 40):** Don't include.
+
+**Hard cap: 10 A-tier per run.** If more qualify, raise the effective A threshold for this run only (do NOT edit `config.json`) and demote excess to B-tier with note "would-be-A, raised threshold this run."
+
+---
+
+## Resume tailoring (A-tier only)
+
+See `references/tailoring-guide.md`. Key principle: every tailoring instruction names a specific bullet, section, or phrase. "Emphasize your leadership" is never acceptable. "Move the $X revenue bullet to position 1 under the [Company] section" is.
+
+By default, the daily report includes the **ATS keyword diff** inline for each A-tier match. Full tailored resumes and outreach drafts are generated **on demand** when the user replies with `pack <id> ...` after reviewing the report.

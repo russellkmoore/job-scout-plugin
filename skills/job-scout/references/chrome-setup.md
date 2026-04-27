@@ -1,12 +1,13 @@
 # Chrome Setup Guide
 
-How to install and configure Claude in Chrome for LinkedIn job searching.
+How to install and configure Claude in Chrome for LinkedIn + multi-board job searching.
 
 ## Prerequisites
 
-- Google Chrome browser (latest version)
+- Google Chrome (any current channel — Stable, Beta, Dev, or Nightly all work; the extension only requires a recent Chromium-based Chrome)
 - Claude desktop app with Cowork mode
 - LinkedIn account (free or Premium)
+- Optional accounts (Pass 2 boards): **Wellfound**, **YC Work at a Startup** — both can require login for full JD text. Built In Seattle and HN Who is Hiring do not require login.
 
 ## Installation
 
@@ -31,6 +32,20 @@ tabs_context_mcp
 ```
 
 If this returns information about your open Chrome tabs, the extension is connected and working.
+
+## LinkedIn JD Lazy-Load Extraction (Canonical Sequence)
+
+LinkedIn deliberately omits the job description body from the initial DOM. To get the full JD on any LinkedIn listing, the scout MUST follow this sequence in order:
+
+1. Navigate to the listing URL (`linkedin.com/jobs/view/<id>` form).
+2. `javascript_tool` → `window.scrollTo(0, 800)` to push the lazy-load triggers into view.
+3. Wait 3–5 seconds for the async render. Don't skip this — the request is fired by scroll position and resolves async.
+4. `find` the "...more" button/link in the description block, then click it to expand.
+5. THEN call `get_page_text` — the full JD will be present in the returned text.
+
+If you skip *any* step you'll get only the header metadata (title, company, salary, location). This applies to every LinkedIn listing, including ones LinkedIn marks as "Promoted by hirer."
+
+Career pages and ATS boards (Greenhouse, Lever, Workday, Ashby) generally return full JDs on first navigation — no scroll-and-expand dance required.
 
 ## LinkedIn Login
 
