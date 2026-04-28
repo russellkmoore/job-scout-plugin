@@ -180,12 +180,12 @@ Every v1 requirement maps to exactly one phase in `.planning/ROADMAP.md`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCH-01 | Phase 1 | Pending |
-| SCH-02 | Phase 1 | Pending |
-| SCH-03 | Phase 1 | Pending |
-| SCH-04 | Phase 1 | Pending |
-| SCH-05 | Phase 1 | Pending |
-| SCH-06 | Phase 1 | Pending |
+| SCH-01 | Phase 1 | Complete |
+| SCH-02 | Phase 1 | Complete |
+| SCH-03 | Phase 1 | Complete |
+| SCH-04 | Phase 1 | Complete |
+| SCH-05 | Phase 1 | Complete |
+| SCH-06 | Phase 1 | Complete |
 | DSP-01 | Phase 2 | Pending |
 | DSP-02 | Phase 2 | Pending |
 | DSP-03 | Phase 2 | Pending |
@@ -231,13 +231,13 @@ Every v1 requirement maps to exactly one phase in `.planning/ROADMAP.md`.
 | STR-02 | Phase 3 | Pending |
 | STR-03 | Phase 4 | Pending |
 | STR-04 | Phase 3 | Pending |
-| CON-01 | Phase 1 | Pending |
-| CON-02 | Phase 1 | Pending |
-| CON-03 | Phase 1 | Pending |
-| CON-04 | Phase 1 | Pending |
-| CON-05 | Phase 1 | Pending |
-| CON-06 | Phase 1 | Pending |
-| CON-07 | Phase 1 | Pending |
+| CON-01 | Phase 1 | Complete |
+| CON-02 | Phase 1 | Complete |
+| CON-03 | Phase 1 | Complete |
+| CON-04 | Phase 1 | Complete |
+| CON-05 | Phase 1 | Complete |
+| CON-06 | Phase 1 | Complete |
+| CON-07 | Phase 1 | Complete |
 | CON-08 | Phase 3 | Pending |
 | CON-09 | Phase 5 | Pending |
 | CON-10 | Phase 5 | Pending |

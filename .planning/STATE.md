@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-28 (post-Plan 01-03 execution)
+**Last updated:** 2026-04-28 (post-Plan 01-04 execution; Phase 1 complete)
 
 ## Project Reference
 
@@ -19,18 +19,18 @@
 
 ## Current Position
 
-**Phase:** 1 — Schema verification + paths + migration smoke-test
-**Plan:** 01-01 + 01-02 + 01-03 complete (Wave 1 + Wave 2 docs done); 01-04 (migration smoke-test) remaining
-**Status:** Phase 1 in progress — 3/4 plans complete
+**Phase:** 1 — Schema migration + paths + foundational cleanup — **COMPLETE**
+**Plan:** All 4 plans complete (01-01, 01-02, 01-03, 01-04)
+**Status:** Phase 1 complete; ready for Phase 2 planning
 
-**Progress:** 0/6 phases complete (3/4 plans in Phase 1 complete)
+**Progress:** 1/6 phases complete
 
 ```
-[~] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 3/4 plans complete
+[x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
     [x] Plan 01-01 — schema.py v=4 + STATUS_VALUES + validate_runs_log/ensure_today_subdirs + venv install hints (SCH-01..04, CON-02, CON-04 sites 1-2 of 4)
     [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05 scripts/-side, CON-07)
     [x] Plan 01-03 — docs/skills schema sync (file-contract.md path entries SCH-06; companies_per_day SSOT to templates/config.json CON-06; scout-setup legacy-dir migration prompt CON-05 user-facing)
-    [ ] Plan 01-04 — migration smoke-test + grep gates
+    [x] Plan 01-04 — migration round-trip pytest + phase-wide grep gate (SCH-05; verifies 19 grep invariants + pytest exit 0)
 [ ] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs)
 [ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
 [ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
@@ -118,7 +118,7 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — Plan 01-03 executed (file-contract.md gained `runs.jsonl` + `daily/<DATE>/ats_raw/` rows in the SSOT path tables; `companies_per_day` inline numeric defaults removed from `skills/scout-run/SKILL.md` + `skills/job-scout/references/search-config.md` and replaced with prose pointing at `templates/config.json` (canonical at value 5); `skills/scout-setup/SKILL.md` Step 1 now has a new question 4 detecting v0.3 legacy data dirs and prompting reuse via inline `state.py write` — closing CON-05 user-facing half).
+**Last session ended:** 2026-04-28 — Plan 01-04 executed (migration round-trip pytest + phase-wide grep gate). Phase 1 closes here with all 13 requirements (SCH-01..06, CON-01..07) complete and grep-verifiable.
 
 **Plan 01-01 deliverables (prior session):**
 
@@ -148,16 +148,26 @@ None at roadmap stage.
 
 **CON-05 user-facing closeout.** Plan 01-02 deleted `LEGACY_DATA_DIRS` from `scripts/state.py` (scripts side); Plan 01-03 added the user-facing `/scout-setup` Step 1 prompt that detects + reuses legacy data dirs by calling `state.py write` inline. Together: existing v0.3 users get a graceful upgrade path on first re-run of `/scout-setup`, and a fresh v0.4 user with no legacy dirs falls through to the existing fresh-setup flow.
 
-**Phase 1 status:** 3/4 plans complete. Plan 01-04 (migration smoke-test + phase-wide grep gates including `grep -rc 'break-system-packages' scripts/ = 0`) is the only remaining plan. Plan 01-04 is independent of 01-03 and can run as the next sequential step.
+**Plan 01-04 deliverables (this session):**
 
-**Next action:** Execute Plan 01-04 (migration round-trip pytest + phase-wide grep gates).
+- `tests/__init__.py` — empty package marker (commit a4e1abf)
+- `tests/fixtures/master_targets_v3.csv` — checked-in v=3 fixture, 4 lines, 12 columns, 3 rows incl. user-added `my_notes` (commit a4e1abf)
+- `tests/test_migration.py` — pytest module with 5 SCH-05 round-trip assertions; sibling-bootstrap import; `migrated_data_dir` fixture isolates each test in `tmp_path` (commit 6103fa8)
+- Phase-wide grep gate verified — 19 grep checks + pytest exit 0; `PHASE 1 GATE: ALL CHECKS PASSED` (Task 3 verification-only, no commit)
+- SUMMARY at `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-migration-test-SUMMARY.md`
+
+**Pytest install footnote.** pytest 9.0.3 was installed into the existing `~/.job-scout-venv` (which already had pandas 3.0.2). Test runs use `~/.job-scout-venv/bin/python3 -m pytest tests/test_migration.py --tb=short -q`. Module docstring carries CON-04-compliant install hint (`pipx install pytest` recommended; venv as fallback).
+
+**Phase 1 closeout.** All 4 plans complete; all 13 Phase 1 requirements (SCH-01..06, CON-01..07) verified by the phase-wide grep gate. The gate is a single bash pipeline that re-runs in <5 seconds — phase-completion verifier can use it directly. Test infrastructure (tests/ + tests/fixtures/ layout, sibling-bootstrap pattern, exit-code gating) established for Phase 2 + 4 to reuse.
+
+**Next action:** Run Phase 1 verifier (if configured), then `/gsd-discuss-phase 2` → `/gsd-plan-phase 2` → `/gsd-execute-phase 2`. Phase 2 is "Provider Protocol + Greenhouse end-to-end + dispatcher + observability" — DSP-01..DSP-10 (10 reqs).
 
 **On resume, read in order:**
 
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-docs-SUMMARY.md` for the most recent plan context
-3. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-*-PLAN.md` for the next plan
-4. `.planning/ROADMAP.md` for the phase definition + success criteria
+2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-migration-test-SUMMARY.md` for the most recent plan context
+3. `.planning/ROADMAP.md` Phase 2 section for the next phase definition + success criteria
+4. `.planning/research/SUMMARY.md` for ATS provider integration research findings (HIGH confidence)
 
 ---
-*Plan 01-03 executed: 2026-04-28 by sequential executor agent. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
+*Plan 01-04 executed: 2026-04-28 by sequential executor agent. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*

@@ -18,7 +18,7 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
 
 ## Phases
 
-- [ ] **Phase 1: Schema migration + paths + foundational cleanup** — Bump master_targets to v=4 (add `ats_slug_confidence`, `last_ats_hit_date`), add tracker `source` + `ats_provider` columns, create `runs.jsonl` and `daily/<DATE>/ats_raw/` paths, ship the v3→v4 fixture migration test, **and** absorb the foundational concerns cleanup that touches the same scripts: fix the `consolidate_targets.py:270` KeyError, add the `application_status` enum, harden `mine_connections.py` header detection, switch `--break-system-packages` install hints to `pipx`/venv, resolve the `LEGACY_DATA_DIRS` contradiction, align the `companies_per_day` default drift, and harden `~/.job-scout/` file permissions.
+- [x] **Phase 1: Schema migration + paths + foundational cleanup** — Bump master_targets to v=4 (add `ats_slug_confidence`, `last_ats_hit_date`), add tracker `source` + `ats_provider` columns, create `runs.jsonl` and `daily/<DATE>/ats_raw/` paths, ship the v3→v4 fixture migration test, **and** absorb the foundational concerns cleanup that touches the same scripts: fix the `consolidate_targets.py:270` KeyError, add the `application_status` enum, harden `mine_connections.py` header detection, switch `--break-system-packages` install hints to `pipx`/venv, resolve the `LEGACY_DATA_DIRS` contradiction, align the `companies_per_day` default drift, and harden `~/.job-scout/` file permissions.
 - [ ] **Phase 2: Provider Protocol + Greenhouse end-to-end + dispatcher + observability foundations** — Vertical slice: build the Provider Protocol, the canonical `Listing`, the concurrent dispatcher (httpx, semaphores, kill-switch, three-state errors), `runs.jsonl` writer with per-(company, provider) telemetry, and Greenhouse as the first conformant provider. Wire into `/scout-run` additively as `[ATS-PREVIEW]`.
 - [ ] **Phase 3: Detection + `/scout-detect` skill + lazy inline detect + dead-doc-ref cleanup** — Two-factor gate detection, negative-result caching, borderline-review CSV, the new `/scout-detect` skill for top-30 batch detection, and lazy inline detection during `/scout-run`. Slug-confidence column populated; manual lock honored. **Also fixes the 3 dead `commands/scout-run.md` references in the same skill-doc files being modified for the new skill.**
 - [ ] **Phase 4: Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD fallback + filtering layer** — Four more provider modules conforming to the Protocol, JSON-LD fallback as a sixth virtual provider, per-provider posted-date overrides, intra-source regional collapse, evergreen-title blocklist, Workday CSRF/auth-required explicit detection.
@@ -49,7 +49,7 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
 - [x] 01-01-PLAN.md — Schema bump (v=4) + STATUS_VALUES + validate_data wiring + tracker xlsx 16-col extension
 - [x] 01-02-PLAN.md — state.py legacy chain + perm hardening + consolidate_targets dead block + mine_connections header guard + install hints (2 of 4)
 - [x] 01-03-PLAN.md — file-contract.md path entries + companies_per_day SSOT consolidation + scout-setup legacy-dir migration prompt
-- [ ] 01-04-PLAN.md — Migration round-trip pytest (tests/test_migration.py + fixture) + phase-wide grep gate
+- [x] 01-04-PLAN.md — Migration round-trip pytest (tests/test_migration.py + fixture) + phase-wide grep gate
 
 ### Phase 2: Provider Protocol + Greenhouse end-to-end + dispatcher + observability foundations
 
@@ -163,7 +163,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema migration + paths + foundational cleanup | 3/4 | In progress | - |
+| 1. Schema migration + paths + foundational cleanup | 4/4 | Complete | 2026-04-28 |
 | 2. Provider Protocol + Greenhouse + dispatcher + observability | 0/0 | Not started | - |
 | 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 0/0 | Not started | - |
 | 4. Remaining providers + JSON-LD + filtering | 0/0 | Not started | - |
