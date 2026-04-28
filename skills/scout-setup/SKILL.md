@@ -30,7 +30,25 @@ Use `AskUserQuestion` to gather these inputs. Ask them in sequence, not all at o
    - Yes → collect file paths.
    - No → start fresh.
 
-4. **Data directory** — "Where should I save everything?"
+4. **Existing data directory check (v0.4 CON-05)** — Before asking for a fresh data directory, check the three legacy locations from v0.3 in this exact order. For each that exists AND contains `config.json`, ask the user whether to reuse it:
+
+   Legacy paths to check (in order):
+   - `~/Documents/JobSearch/scout`
+   - `~/Documents/JobSearch`
+   - `~/Documents/JobScout`
+
+   For the first one that exists with a `config.json`, use `AskUserQuestion`:
+   > "Found an existing Job Scout data directory at `<path>`. Use this as your data_dir? (Yes / No, set up fresh)"
+
+   If the user says **Yes**:
+   - Set `<data_dir>` to that path.
+   - Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/state.py write "<data_dir>" "<plugin_version>"` to write the state pointer immediately (this is what locks the choice — without it, the next /scout-run won't find the dir, since `LEGACY_DATA_DIRS` was removed in v0.4).
+   - Skip the "Data directory" question (5) below.
+   - Continue with the rest of setup; existing config.json + master_targets.csv will be auto-migrated by `validate_data.py` on first /scout-run.
+
+   If the user says **No** (or no legacy dir is detected), fall through to question 5.
+
+5. **Data directory** — "Where should I save everything?"
    - Default: `~/Documents/JobSearch/`
    - The directory must persist on the user's filesystem (i.e. NOT a session-scoped temp folder). If the user doesn't have a clear preference, accept the default.
    - Create the directory if missing: `mkdir -p <data_dir>` and `mkdir -p <data_dir>/daily` and `mkdir -p <data_dir>/assessment` and `mkdir -p <data_dir>/Resumes`.
