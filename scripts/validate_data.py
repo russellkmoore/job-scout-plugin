@@ -114,10 +114,47 @@ def validate_daily_dir(data_dir):
     return True, "ok"
 
 
+def validate_runs_log(data_dir):
+    """Ensure runs.jsonl exists; create empty if missing. Idempotent.
+
+    v0.4 SCH-01: every /scout-run starts by ensuring this file is present so
+    the dispatcher (Phase 2) can append unconditionally without an mkdir guard.
+    Phase 1 only ensures presence — rotation policy is a v0.5+ concern.
+    """
+    path = os.path.join(data_dir, "runs.jsonl")
+    if not os.path.isfile(path):
+        open(path, "a").close()  # touch — empty file is valid JSONL
+        return True, "created empty runs.jsonl"
+    return True, "ok"
+
+
+def ensure_today_subdirs(data_dir, date_str):
+    """Create daily/<DATE>/ and daily/<DATE>/ats_raw/ if missing. Idempotent.
+
+    v0.4 SCH-02: called by /scout-run Step 0 once <TODAY> is known. NOT called
+    by main()'s validate-everything sweep because that runs before date resolution.
+    """
+    today_dir = os.path.join(data_dir, "daily", date_str)
+    os.makedirs(os.path.join(today_dir, "ats_raw"), exist_ok=True)
+    return True, f"ensured {today_dir}/ats_raw/"
+
+
 def main(argv):
     if len(argv) < 2:
         print("Usage: validate_data.py <data_dir>", file=sys.stderr)
+        print("       validate_data.py ensure-today <data_dir> <YYYY-MM-DD>", file=sys.stderr)
         sys.exit(1)
+
+    # Subcommand dispatch (matches state.py / tracker_utils.py convention)
+    if argv[1] == "ensure-today":
+        if len(argv) < 4:
+            print("Usage: validate_data.py ensure-today <data_dir> <YYYY-MM-DD>", file=sys.stderr)
+            sys.exit(1)
+        data_dir = os.path.expanduser(argv[2])
+        date_str = argv[3]
+        ok, msg = ensure_today_subdirs(data_dir, date_str)
+        print(json.dumps({"data_dir": data_dir, "date": date_str, "ok": ok, "message": msg}, indent=2))
+        sys.exit(0 if ok else 1)
 
     data_dir = os.path.expanduser(argv[1])
     if not os.path.isdir(data_dir):
@@ -132,6 +169,7 @@ def main(argv):
         ("master_targets", validate_master_targets),
         ("tracker", validate_tracker),
         ("daily_dir", validate_daily_dir),
+        ("runs_log", validate_runs_log),
     ]:
         ok, msg = fn(data_dir)
         results[name] = {"ok": ok, "message": msg}
