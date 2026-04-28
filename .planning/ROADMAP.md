@@ -66,7 +66,11 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
   4. A deliberately-broken Greenhouse fixture (raises during `to_listing()`) surfaces as a logged exception in `runs.jsonl` with the `(company, provider)` context — never silently swallowed.
   5. Running `/scout-run` against a target list of 30 Greenhouse companies + 1 Lever stub never opens more than 10 simultaneous Greenhouse connections (per-provider semaphore enforced, not global cap masquerading).
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+- [ ] 02-01-dispatcher-PLAN.md — scripts/ats package skeleton + Provider Protocol + Listing dataclass + dispatcher (shared httpx.Client + per-provider semaphores + 3-state outcomes + kill-switch) + runs_log.py append-only writer (DSP-01..08)
+- [ ] 02-02-greenhouse-PLAN.md — Greenhouse provider conforming to Provider Protocol + checked-in sanitized fixture (airbnb 3-job slice) + smoke roundtrip via fixture (DSP-09)
+- [ ] 02-03-wire-preview-PLAN.md — Wire [ATS-PREVIEW] Pass 1 hook into /scout-run Step 2.5 + runs.jsonl append + ats_raw/<provider>/<company>.json persistence; preserves user's pending uncommitted edits via stash-replay protocol (DSP-10)
 
 ### Phase 3: Detection + `/scout-detect` skill + lazy inline detect + dead-doc-ref cleanup
 
@@ -164,7 +168,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema migration + paths + foundational cleanup | 4/4 | Complete | 2026-04-28 |
-| 2. Provider Protocol + Greenhouse + dispatcher + observability | 0/0 | Not started | - |
+| 2. Provider Protocol + Greenhouse + dispatcher + observability | 0/3 | Planned | - |
 | 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 0/0 | Not started | - |
 | 4. Remaining providers + JSON-LD + filtering | 0/0 | Not started | - |
 | 5. Cross-source dedup + tier bump + enrich + scoring/tracker cleanup | 0/0 | Not started | - |
