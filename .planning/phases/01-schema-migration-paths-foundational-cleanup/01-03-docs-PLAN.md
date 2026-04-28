@@ -170,27 +170,36 @@ From scripts/state.py CLI (after Plan 02): `python3 scripts/state.py write <data
 
     **Edit 3 — none for templates/config.json.** It's the SSOT — leave at 5.
 
-    Self-check: after these edits, the only places quoting a numeric `companies_per_day` value across the repo should be `templates/config.json` (line 32, value 5) and `skills/scout-setup/SKILL.md` Step 5 (line 99 — `companies_per_day: 5, max_listings_per_run: 30`, which IS a description of the template defaults the setup populates and is internally consistent with the template — leave as-is). To prove the canonical-only rule:
+    **Self-check (tightened regex per BLOCKER 5):** after these edits, the only places quoting a numeric `companies_per_day` value across the verified files (`skills/scout-run/SKILL.md` and `skills/job-scout/references/search-config.md`) should be ZERO. Use a precise regex that only matches a `companies_per_day` literal IMMEDIATELY followed by typical config-style separators — `"`, `'`, backtick, or `:` — optional whitespace, then a digit. The previously used `companies_per_day.*[0-9]` form was too loose: greedy `.*` could match unrelated digits later on the same line (e.g., a future docstring "companies_per_day was 8 in v0.3").
 
-    ```bash
-    grep -nE "companies_per_day.*[0-9]" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md
+    The canonical default DOES still appear in `templates/config.json` (`"companies_per_day": 5`) — that's the SSOT, allow-listed by being outside the verified files. The Step 5 line in `skills/scout-setup/SKILL.md` (`companies_per_day: 5, max_listings_per_run: 30`) is also outside the verified files — leave as-is. Verification scope is strictly the two files this task edits.
+
+    The regex used by both the self-check below and the verify command is:
+    ```
+    companies_per_day["'`:][[:space:]]*[0-9]+
     ```
 
-    must return zero matches after this task.
+    Run as the self-check after editing (must return 0 matches):
+
+    ```bash
+    grep -nE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md
+    ```
+
+    Note: the new prose `(see \`companies_per_day\` in \`templates/config.json\`)` does NOT match this pattern — `companies_per_day` is followed by a backtick-close + space, not by `[":']` then a digit. Self-check passes.
   </action>
   <verify>
-    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && test "$(grep -cE 'companies_per_day.*[0-9]' skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')" = "0" && grep -q "templates/config.json" skills/scout-run/SKILL.md && grep -q "templates/config.json" skills/job-scout/references/search-config.md && grep -q "\"companies_per_day\": 5" templates/config.json && echo OK</automated>
+    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && test "$(grep -cE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')" = "0" && grep -q "templates/config.json" skills/scout-run/SKILL.md && grep -q "templates/config.json" skills/job-scout/references/search-config.md && grep -q "\"companies_per_day\": 5" templates/config.json && echo OK</automated>
   </verify>
   <acceptance_criteria>
-    - `grep -cE "companies_per_day.*[0-9]" skills/scout-run/SKILL.md` = `0` (no numeric default quoted)
-    - `grep -cE "companies_per_day.*[0-9]" skills/job-scout/references/search-config.md` = `0`
+    - `grep -cE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/scout-run/SKILL.md` = `0` (no numeric default quoted with config-style separator)
+    - `grep -cE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/job-scout/references/search-config.md` = `0`
     - `grep -q "templates/config.json" skills/scout-run/SKILL.md` returns 0 (the new prose reference)
     - `grep -q "templates/config.json" skills/job-scout/references/search-config.md` returns 0
     - `grep -q '"companies_per_day": 5' templates/config.json` returns 0 (template UNCHANGED, still 5)
     - The verify command prints `OK`
   </acceptance_criteria>
   <done>
-    The two skill docs cite `templates/config.json` as the source of the `companies_per_day` default — no inline numbers. `templates/config.json` remains the SSOT at value 5.
+    The two skill docs cite `templates/config.json` as the source of the `companies_per_day` default — no inline numbers next to a `["':$backtick]` separator. `templates/config.json` remains the SSOT at value 5. The tightened regex avoids false positives from future prose mentioning a digit elsewhere on the same line.
   </done>
 </task>
 
@@ -205,7 +214,19 @@ From scripts/state.py CLI (after Plan 02): `python3 scripts/state.py write <data
   <action>
     Plan 02 deletes `LEGACY_DATA_DIRS` from `state.py`. Existing v0.3 users without state.json now see "exit 2" on /scout-run with no auto-detection. Add a one-time migration prompt to `/scout-setup` Step 1.
 
-    **Edit — `skills/scout-setup/SKILL.md` Step 1.** The existing Step 1 starts at line 18 ("## Step 1: Welcome & data gathering") and uses `AskUserQuestion` to gather (1) Resume path, (2) LinkedIn export, (3) Existing job tracking files, (4) Data directory. Insert a new sub-step BEFORE the existing question 4 ("Data directory"). Find the line:
+    **Sub-step 0 — pre-edit cross-reference scan (WARNING 4 mitigation).** Before applying Edit 1, search for any cross-reference that points at the old "Step 1 question 4" / "question 4" / "Q4" anchor in skill docs. The renumber 4→5 below could leave stale references:
+
+    ```bash
+    grep -rn 'Step 1[, ].*4\|[Qq]uestion 4\|[Qq]4' skills/
+    ```
+
+    Report any matches found. If matches exist:
+    - If the match refers to "Step 1 question 4 (Data directory)" — update to either "question 5" or rephrase to use prose like "the Data directory question" / "the data-directory prompt in Step 1" (more durable against future renumbers).
+    - If the match refers to a different "4" that happens to be in a Step-1 line, leave it alone.
+
+    Document any updates inline in the plan execution log (or in the SUMMARY).
+
+    **Edit 1 — `skills/scout-setup/SKILL.md` Step 1.** The existing Step 1 starts at line 18 ("## Step 1: Welcome & data gathering") and uses `AskUserQuestion` to gather (1) Resume path, (2) LinkedIn export, (3) Existing job tracking files, (4) Data directory. Insert a new sub-step BEFORE the existing question 4 ("Data directory"). Find the line:
 
     ```markdown
     4. **Data directory** — "Where should I save everything?"
@@ -256,10 +277,11 @@ From scripts/state.py CLI (after Plan 02): `python3 scripts/state.py write <data
     - `grep -q "scripts/state.py write" skills/scout-setup/SKILL.md` returns 0 (the inline state-pointer write)
     - `grep -q "CON-05" skills/scout-setup/SKILL.md` returns 0 (traceability tag)
     - The Step 1 list is renumbered: question 4 is now "Existing data directory check," question 5 is "Data directory" — verify with `grep -c "^[0-9]\\." skills/scout-setup/SKILL.md` showing one MORE numbered question than before (4→5 in Step 1)
+    - The pre-edit cross-reference scan (`grep -rn 'Step 1[, ].*4\|[Qq]uestion 4\|[Qq]4' skills/`) was run; any matches that pointed at "Step 1 question 4 (Data directory)" were updated to "question 5" or to durable prose
     - The verify command prints `OK`
   </acceptance_criteria>
   <done>
-    `skills/scout-setup/SKILL.md` Step 1 detects existing v0.3 data dirs at the three known legacy paths, prompts the user to reuse one (calling `state.py write` inline to lock the choice), and falls through to a fresh setup if the user declines. Existing v0.3 users get a graceful upgrade path without re-running tooling against `LEGACY_DATA_DIRS` (which is gone after Plan 02).
+    `skills/scout-setup/SKILL.md` Step 1 detects existing v0.3 data dirs at the three known legacy paths, prompts the user to reuse one (calling `state.py write` inline to lock the choice), and falls through to a fresh setup if the user declines. Existing v0.3 users get a graceful upgrade path without re-running tooling against `LEGACY_DATA_DIRS` (which is gone after Plan 02). Cross-references to the old "question 4" anchor have been audited and updated.
   </done>
 </task>
 
@@ -277,9 +299,9 @@ From scripts/state.py CLI (after Plan 02): `python3 scripts/state.py write <data
 
 | Threat ID | Category | Component | Disposition | Mitigation Plan |
 |-----------|----------|-----------|-------------|-----------------|
-| T-03-01 | Tampering (configuration drift) | companies_per_day quoted in 3 places | mitigate | Single SSOT in templates/config.json; skill docs reference the template (CON-06). Future drift is impossible — one source. |
+| T-03-01 | Tampering (configuration drift) | companies_per_day quoted in 3 places | mitigate | Single SSOT in templates/config.json; skill docs reference the template (CON-06). Future drift is impossible — one source. Tightened regex (`companies_per_day["':$backtick][[:space:]]*[0-9]+`) avoids false-positive matches against unrelated digits later on the same prose line. |
 | T-03-02 | Information Disclosure (path documentation) | runs.jsonl path + ats_raw/ path described in two places | mitigate | file-contract.md is the SSOT; Phase 2 writer references it. SCH-06 ensures the docstring rule "every new path lives in exactly one place" is honored. |
-| T-03-03 | DoS (broken upgrade path) | v0.3 user runs /scout-run after Plan 02 deletes LEGACY_DATA_DIRS without re-running /scout-setup | mitigate | scout-setup Step 1 detects legacy dirs and prompts reuse, calling state.py write inline (CON-05 user-facing fix). The `/scout-run` exit-2 message tells the user to run /scout-setup. |
+| T-03-03 | DoS (broken upgrade path) | v0.3 user runs /scout-run after Plan 02 deletes LEGACY_DATA_DIRS without re-running /scout-setup | mitigate | scout-setup Step 1 detects legacy dirs and prompts reuse, calling state.py write inline (CON-05 user-facing fix). The `/scout-run` exit-2 message tells the user to run /scout-setup. Cross-references to "Step 1 question 4" audited so the renumber 4→5 doesn't break in-doc navigation. |
 </threat_model>
 
 <verification>
@@ -291,8 +313,8 @@ grep -q "runs.jsonl" skills/job-scout/references/file-contract.md
 grep -q "ats_raw/" skills/job-scout/references/file-contract.md
 echo "file-contract OK"
 
-# 2. companies_per_day single-SSOT check
-test "$(grep -cE 'companies_per_day.*[0-9]' skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')" = "0"
+# 2. companies_per_day single-SSOT check (tightened regex per BLOCKER 5)
+test "$(grep -cE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')" = "0"
 grep -q '"companies_per_day": 5' templates/config.json
 echo "companies_per_day SSOT OK"
 
@@ -307,12 +329,15 @@ All three `OK` lines must print.
 
 <success_criteria>
 - `file-contract.md` has new entries for `runs.jsonl` (Persistent files table) and `daily/<DATE>/ats_raw/` (Per-run output table) — both cross-referencing the validators that create them
-- `skills/scout-run/SKILL.md` and `skills/job-scout/references/search-config.md` quote NO numeric `companies_per_day` default; both reference `templates/config.json`
+- `skills/scout-run/SKILL.md` and `skills/job-scout/references/search-config.md` quote NO numeric `companies_per_day` default with a config-style separator; both reference `templates/config.json`
 - `templates/config.json` companies_per_day stays at 5 (the canonical SSOT)
 - `skills/scout-setup/SKILL.md` Step 1 detects the 3 legacy data dirs and prompts the user to reuse or skip; reuse calls `state.py write` inline to lock the choice
+- Cross-references to the old "Step 1 question 4 (Data directory)" anchor have been audited and updated
 - All three task verify blocks exit 0
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-SUMMARY.md` summarizing the file-contract additions, the companies_per_day SSOT consolidation, and the scout-setup legacy-dir migration prompt.
+After completion, create `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-SUMMARY.md` summarizing the file-contract additions, the companies_per_day SSOT consolidation (with note on the tightened regex), the scout-setup legacy-dir migration prompt, and any cross-reference updates surfaced by the Step 1 question-renumber audit.
 </output>
+</content>
+</invoke>

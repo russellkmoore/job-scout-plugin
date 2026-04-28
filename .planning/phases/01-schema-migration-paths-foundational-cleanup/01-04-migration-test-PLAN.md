@@ -258,7 +258,7 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
         assert len(df_v3_view) == len(fixture_df)
     ```
 
-    **tests/fixtures/master_targets_v3.csv** — exactly the 4-line CSV shown in step 2 above.
+    **tests/fixtures/master_targets_v3.csv** — exactly the 4-line CSV shown in step 2 above (header + 3 data rows; each line terminated by `\n`, file ends with a newline after the Acme row).
   </implementation>
 </feature>
 
@@ -272,7 +272,7 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
   </read_first>
   <behavior>
     - `tests/__init__.py` exists and is empty (zero bytes).
-    - `tests/fixtures/master_targets_v3.csv` exists with exactly 4 lines (1 header + 3 data rows).
+    - `tests/fixtures/master_targets_v3.csv` exists with exactly 4 lines (1 header + 3 data rows), each terminated by `\n`. The file ends with a newline after the Acme row, so `wc -l` returns `4`.
     - Header row contains 12 columns: 11 canonical v=3 + `my_notes` at the end.
     - All 3 rows have valid CSV (no unbalanced quotes; semicolons used INSIDE quoted fields for `connection_names`).
   </behavior>
@@ -285,7 +285,7 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
 
     Create `tests/__init__.py` with empty content (use the Write tool with content `""`).
 
-    Create `tests/fixtures/master_targets_v3.csv` with EXACTLY this content (4 lines, no trailing blank line):
+    Create `tests/fixtures/master_targets_v3.csv`. Write 4 lines, each terminated by `\n` (the file ends with a newline after the Acme row, so `wc -l` reports `4`). Do NOT add a 5th empty line — only the trailing newline on line 4 (the Acme row). The file content is:
 
     ```csv
     company_name,industry,career_page_url,ats_provider,ats_board_url,connection_names,linkedin_connection_count,application_status,fit_notes,last_checked,data_source,my_notes
@@ -293,6 +293,8 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     lululemon,Retail,https://careers.lululemon.com,workday,https://lululemon.wd5.myworkdayjobs.com/careers,,3,Applied 2026-03-12 / no response,Tech leadership ladder is real,2026-04-15,user_csv,
     Acme,,,,,,0,Dead,passed on 2026-Q1,2026-01-10,scout_discovered,
     ```
+
+    **Important POSIX-`wc -l` semantic:** `wc -l` counts newline characters. A file containing 4 lines where each line (including the last) is terminated by `\n` has 4 newline characters and `wc -l` returns `4`. A file with 4 lines where the last line is NOT newline-terminated returns `3` from `wc -l`. The Write tool writes the content verbatim — to satisfy the verify assertion `wc -l = 4`, ensure the content string passed to Write ends with `\n` (i.e., the final character of the file is the newline after `scout_discovered,`).
 
     Note the `connection_names` cell for Stripe contains semicolons (per existing convention in scripts/schema.py:28) — these are INSIDE the comma-delimited cell because the cell does NOT contain commas, so no quoting is required by RFC 4180.
 
@@ -304,14 +306,14 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
   <acceptance_criteria>
     - `test -f tests/__init__.py` passes AND `test ! -s tests/__init__.py` passes (file exists and is empty)
     - `test -f tests/fixtures/master_targets_v3.csv` passes
-    - `wc -l < tests/fixtures/master_targets_v3.csv` returns `4` (1 header + 3 rows; trailing newline counts the last row)
+    - `wc -l < tests/fixtures/master_targets_v3.csv` returns `4` (file has 4 lines, each `\n`-terminated; 4 newline characters total)
     - `head -1 tests/fixtures/master_targets_v3.csv | tr ',' '\n' | wc -l` returns `12`
     - The 12th header is `my_notes`
     - The 3 data rows have company_name `Stripe`, `lululemon`, `Acme` in that order
     - The verify command prints `OK`
   </acceptance_criteria>
   <done>
-    `tests/__init__.py` (empty marker) and `tests/fixtures/master_targets_v3.csv` (12-column, 3-row v=3 fixture) exist. `csv.reader` parses the fixture cleanly with 4 rows of 12 columns each.
+    `tests/__init__.py` (empty marker) and `tests/fixtures/master_targets_v3.csv` (12-column, 3-row v=3 fixture, file ends with a trailing newline so `wc -l = 4`) exist. `csv.reader` parses the fixture cleanly with 4 rows of 12 columns each.
   </done>
 </task>
 
@@ -349,7 +351,7 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     If `test_schema_version_is_v4` fails, Plan 01 has not landed correctly — surface to the orchestrator; do NOT modify the test to compensate.
   </action>
   <verify>
-    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && test -f tests/test_migration.py && python3 -c "import ast; ast.parse(open('tests/test_migration.py').read())" && grep -q "def test_schema_version_is_v4" tests/test_migration.py && grep -q "def test_all_v3_rows_preserved" tests/test_migration.py && grep -q "def test_new_v4_columns_present_and_empty" tests/test_migration.py && grep -q "def test_user_added_column_survives" tests/test_migration.py && grep -q "def test_v3_reader_can_parse_v4_csv" tests/test_migration.py && grep -q "def migrated_data_dir" tests/test_migration.py && python3 -m pytest tests/test_migration.py -v 2>&1 | tail -20</automated>
+    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && test -f tests/test_migration.py && python3 -c "import ast; ast.parse(open('tests/test_migration.py').read())" && grep -q "def test_schema_version_is_v4" tests/test_migration.py && grep -q "def test_all_v3_rows_preserved" tests/test_migration.py && grep -q "def test_new_v4_columns_present_and_empty" tests/test_migration.py && grep -q "def test_user_added_column_survives" tests/test_migration.py && grep -q "def test_v3_reader_can_parse_v4_csv" tests/test_migration.py && grep -q "def migrated_data_dir" tests/test_migration.py && python3 -m pytest tests/test_migration.py --tb=short -q 2>&1; test $? -eq 0</automated>
   </verify>
   <acceptance_criteria>
     - `test -f tests/test_migration.py` passes
@@ -361,10 +363,10 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     - `grep -q "def test_v3_reader_can_parse_v4_csv" tests/test_migration.py` returns 0
     - `grep -q "def migrated_data_dir" tests/test_migration.py` returns 0 (the pytest fixture)
     - `grep -q "sys.path.insert(0, str(SCRIPTS_DIR))" tests/test_migration.py` returns 0 (sibling-bootstrap)
-    - `python3 -m pytest tests/test_migration.py -v` exits 0 with "5 passed" in the output
+    - `python3 -m pytest tests/test_migration.py --tb=short -q` exits 0 (success-by-exit-code rather than brittle stdout grep on `"5 passed"`; pytest exit code 0 means all collected tests passed and no errors occurred)
   </acceptance_criteria>
   <done>
-    `tests/test_migration.py` exists, parses as valid Python, and `pytest tests/test_migration.py -v` reports 5 passed. The migration round-trip is locked behind the test for every future schema change.
+    `tests/test_migration.py` exists, parses as valid Python, and `pytest tests/test_migration.py --tb=short -q` exits 0 (all tests passed). The migration round-trip is locked behind the test for every future schema change.
   </done>
 </task>
 
@@ -378,7 +380,7 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     A single shell pipeline confirms every grep-verifiable Phase 1 invariant:
     - Zero `--break-system-packages` references in `scripts/` (CON-04, all 4 sites — Plans 01 + 02)
     - Zero `LEGACY_DATA_DIRS` references in `scripts/` (CON-05 — Plan 02)
-    - Zero numeric `companies_per_day` defaults outside `templates/config.json` (CON-06 — Plan 03)
+    - Zero numeric `companies_per_day` defaults outside `templates/config.json` (CON-06 — Plan 03; uses tightened regex per BLOCKER 5)
     - `MASTER_TARGETS_VERSION = 4` in schema.py (SCH-03 — Plan 01)
     - `STATUS_VALUES` defined in schema.py (CON-02 — Plan 01)
     - `_harden_perms` defined in state.py (CON-07 — Plan 02)
@@ -387,6 +389,7 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     - `runs.jsonl` referenced in file-contract.md (SCH-06 — Plan 03)
     - `ats_raw/` referenced in file-contract.md (SCH-06 — Plan 03)
     - "Existing data directory check" in scout-setup/SKILL.md (CON-05 user-facing — Plan 03)
+    - pytest exits 0 on `tests/test_migration.py` (SCH-05 — this plan; uses exit-code rather than `"5 passed"` string match per WARNING 2)
   </behavior>
   <action>
     Run this verification pipeline. It is the canonical phase-completion gate for Phase 1:
@@ -400,8 +403,8 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     # CON-05: LEGACY_DATA_DIRS gone from state.py
     test "$(grep -c LEGACY_DATA_DIRS scripts/state.py 2>/dev/null)" = "0" || { echo "FAIL: LEGACY_DATA_DIRS still in state.py"; exit 1; }
 
-    # CON-06: no inline numeric companies_per_day defaults outside templates/
-    test "$(grep -cE 'companies_per_day.*[0-9]' skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')" = "0" || { echo "FAIL: numeric companies_per_day default still in skill docs"; exit 1; }
+    # CON-06: no inline numeric companies_per_day defaults outside templates/ (tightened regex per BLOCKER 5)
+    test "$(grep -cE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')" = "0" || { echo "FAIL: numeric companies_per_day default still in skill docs"; exit 1; }
     grep -q '"companies_per_day": 5' templates/config.json || { echo "FAIL: companies_per_day not at canonical 5 in template"; exit 1; }
 
     # SCH-03 + CON-02 + Plan 01 schema bumps
@@ -426,8 +429,9 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     # CON-05 user-facing: legacy-dir prompt in scout-setup
     grep -q "Existing data directory check" skills/scout-setup/SKILL.md || { echo "FAIL: legacy-dir prompt missing in scout-setup"; exit 1; }
 
-    # SCH-05: pytest passes
-    python3 -m pytest tests/test_migration.py -v 2>&1 | tail -3 | grep -q "5 passed" || { echo "FAIL: migration tests not all passing"; exit 1; }
+    # SCH-05: pytest exits 0 (WARNING 2 fix — exit code, not string match on "5 passed")
+    python3 -m pytest tests/test_migration.py --tb=short -q 2>&1
+    test $? -eq 0 || { echo "FAIL: migration tests not all passing"; exit 1; }
 
     # CON-01: no dead already_applied refs in consolidate_targets
     test "$(grep -c already_applied scripts/consolidate_targets.py 2>/dev/null)" = "0" || { echo "FAIL: already_applied still in consolidate_targets.py"; exit 1; }
@@ -444,11 +448,11 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
     This task does NOT modify any file — it only verifies. If a check fails, surface to the orchestrator; the failing plan needs revision (route through `/gsd-plan-phase` revision mode against that plan's must_haves).
   </action>
   <verify>
-    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && bash -c 'set -e; test "$(grep -rc break-system-packages scripts/ 2>/dev/null | awk -F: "{s+=\$2} END {print s+0}")" = "0"; test "$(grep -c LEGACY_DATA_DIRS scripts/state.py 2>/dev/null)" = "0"; test "$(grep -cE "companies_per_day.*[0-9]" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: "{s+=\$2} END {print s+0}")" = "0"; grep -q "\"companies_per_day\": 5" templates/config.json; grep -q "MASTER_TARGETS_VERSION = 4" scripts/schema.py; grep -q "ats_slug_confidence" scripts/schema.py; grep -q "STATUS_VALUES = frozenset" scripts/schema.py; grep -q "def _harden_perms" scripts/state.py; grep -q "def validate_runs_log" scripts/validate_data.py; grep -q "def ensure_today_subdirs" scripts/validate_data.py; grep -q "runs.jsonl" skills/job-scout/references/file-contract.md; grep -q "ats_raw/" skills/job-scout/references/file-contract.md; grep -q "Existing data directory check" skills/scout-setup/SKILL.md; python3 -m pytest tests/test_migration.py 2>&1 | tail -3 | grep -q "5 passed"; test "$(grep -c already_applied scripts/consolidate_targets.py 2>/dev/null)" = "0"; grep -q "WARNING: detect_header_rows fell through" scripts/mine_connections.py; echo "PHASE 1 GATE OK"'</automated>
+    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && bash -c 'set -e; test "$(grep -rc break-system-packages scripts/ 2>/dev/null | awk -F: "{s+=\$2} END {print s+0}")" = "0"; test "$(grep -c LEGACY_DATA_DIRS scripts/state.py 2>/dev/null)" = "0"; test "$(grep -cE "companies_per_day[\"'\`:][[:space:]]*[0-9]+" skills/scout-run/SKILL.md skills/job-scout/references/search-config.md 2>/dev/null | awk -F: "{s+=\$2} END {print s+0}")" = "0"; grep -q "\"companies_per_day\": 5" templates/config.json; grep -q "MASTER_TARGETS_VERSION = 4" scripts/schema.py; grep -q "ats_slug_confidence" scripts/schema.py; grep -q "STATUS_VALUES = frozenset" scripts/schema.py; grep -q "def _harden_perms" scripts/state.py; grep -q "def validate_runs_log" scripts/validate_data.py; grep -q "def ensure_today_subdirs" scripts/validate_data.py; grep -q "runs.jsonl" skills/job-scout/references/file-contract.md; grep -q "ats_raw/" skills/job-scout/references/file-contract.md; grep -q "Existing data directory check" skills/scout-setup/SKILL.md; python3 -m pytest tests/test_migration.py --tb=short -q; test "$(grep -c already_applied scripts/consolidate_targets.py 2>/dev/null)" = "0"; grep -q "WARNING: detect_header_rows fell through" scripts/mine_connections.py; echo "PHASE 1 GATE OK"'</automated>
   </verify>
   <acceptance_criteria>
     - The single bash pipeline above prints `PHASE 1 GATE OK` and exits 0
-    - Specifically: 0 break-system-packages, 0 LEGACY_DATA_DIRS, 0 inline numeric companies_per_day defaults, schema at v=4, all helpers defined, 5 pytest tests passing, no `already_applied` references, mine_connections WARNING string present
+    - Specifically: 0 break-system-packages, 0 LEGACY_DATA_DIRS, 0 inline numeric companies_per_day defaults (under tightened regex), schema at v=4, all helpers defined, pytest exits 0 on tests/test_migration.py, no `already_applied` references, mine_connections WARNING string present
   </acceptance_criteria>
   <done>
     Phase 1's grep-verifiable invariants are all green. The phase is ready for verifier hand-off and the next phase planning trigger.
@@ -471,15 +475,16 @@ V=3 fixture shape (what we generate at tests/fixtures/master_targets_v3.csv):
 |-----------|----------|-----------|-------------|-----------------|
 | T-04-01 | Tampering (data integrity during migration) | validate_master_targets on user's CSV | mitigate | The 5 pytest assertions verify zero data loss against a realistic fixture (3 rows, 12 cols incl. user-added). RED before Plan 01 lands; GREEN after. Future schema changes that break this contract fail the test before reaching users (SCH-05). |
 | T-04-02 | Tampering (test bypass) | Test could be modified to make a regression pass | accept | The test file is small, reviewed at git-diff time, and the 5 assertions trace 1:1 to SCH-05 sub-criteria. A reviewer would see test edits in any PR. Phase 1's no-test-suite carve-out is explicit — no broader bypass surface exists. |
-| T-04-03 | Repudiation (silent regression in another plan) | Plans 01-03 invariants drift after merge | mitigate | Task 3 grep gate catches every invariant in 5 seconds. Run as the final verifier step before phase close. |
+| T-04-03 | Repudiation (silent regression in another plan) | Plans 01-03 invariants drift after merge | mitigate | Task 3 grep gate catches every invariant in 5 seconds. Run as the final verifier step before phase close. Uses pytest exit-code (not `"5 passed"` string match) so the gate is robust against pytest output format changes. |
 </threat_model>
 
 <verification>
 After all 3 tasks complete:
 
 ```bash
-# Test green
-python3 -m pytest tests/test_migration.py -v   # 5 passed
+# Test green (uses exit-code, robust against pytest output format)
+python3 -m pytest tests/test_migration.py --tb=short -q
+test $? -eq 0
 
 # Phase-wide gate
 bash -c '...'   # Task 3's verify command — prints "PHASE 1 GATE OK"
@@ -489,13 +494,15 @@ Both must succeed.
 </verification>
 
 <success_criteria>
-- `tests/__init__.py` (empty) and `tests/fixtures/master_targets_v3.csv` (4 lines, 12 cols) exist
+- `tests/__init__.py` (empty) and `tests/fixtures/master_targets_v3.csv` (4 lines, 12 cols, trailing newline) exist
 - `tests/test_migration.py` has 5 test functions named per the spec; all imports resolve via sibling-bootstrap
-- `python3 -m pytest tests/test_migration.py -v` reports `5 passed`
+- `python3 -m pytest tests/test_migration.py --tb=short -q` exits 0
 - The phase-wide grep gate (Task 3) exits 0 with `PHASE 1 GATE OK`
 - Every Plan 01–04 grep-verifiable invariant from `must_haves.truths` is observable in the codebase
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-SUMMARY.md` summarizing the test fixture, the 5 test functions, and the phase-wide grep gate result. Note any deps that were missing from the dev environment (pytest / pandas) so the user can install them with the v0.4 hint.
+After completion, create `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-SUMMARY.md` summarizing the test fixture, the 5 test functions, the phase-wide grep gate result, and the use of pytest exit-code-based gating (rather than brittle `"5 passed"` string matching) per WARNING 2. Note any deps that were missing from the dev environment (pytest / pandas) so the user can install them with the v0.4 hint.
 </output>
+</content>
+</invoke>

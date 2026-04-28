@@ -278,7 +278,7 @@ def detect_header_rows(filepath):
     **Edit 6 — update the module docstring (current lines 1-18).** Specifically the `python3 scripts/state.py resolve` usage example. Change the trailing comment from `# prints resolved data_dir, falling back through legacy paths` to `# prints resolved data_dir from state.json (exits 2 if not configured)`.
   </action>
   <verify>
-    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && python3 scripts/_verify_state.py 2>&1 | tail -10 || python3 -c 'import sys, os, stat, tempfile; sys.path.insert(0, "scripts"); import state; assert not hasattr(state, "LEGACY_DATA_DIRS"), "LEGACY_DATA_DIRS still defined"; td = tempfile.mkdtemp(); state.STATE_DIR = os.path.join(td, ".job-scout"); state.STATE_PATH = os.path.join(state.STATE_DIR, "state.json"); dd = os.path.join(td, "JobSearch"); os.makedirs(dd); state.write_state(dd, "0.4.0"); fm = stat.S_IMODE(os.stat(state.STATE_PATH).st_mode); dm = stat.S_IMODE(os.stat(state.STATE_DIR).st_mode); assert fm == 0o600, f"file mode {oct(fm)}"; assert dm == 0o700, f"dir mode {oct(dm)}"; os.chmod(state.STATE_PATH, 0o644); os.chmod(state.STATE_DIR, 0o755); s = state.read_state(); assert s["data_dir"] == dd; fm = stat.S_IMODE(os.stat(state.STATE_PATH).st_mode); dm = stat.S_IMODE(os.stat(state.STATE_DIR).st_mode); assert fm == 0o600 and dm == 0o700, f"after read fm={oct(fm)} dm={oct(dm)}"; assert state.resolve_data_dir() == dd; os.remove(state.STATE_PATH); assert state.resolve_data_dir() == ""; print("OK")'</automated>
+    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && python3 -c 'import sys, os, stat, tempfile; sys.path.insert(0, "scripts"); import state; assert not hasattr(state, "LEGACY_DATA_DIRS"), "LEGACY_DATA_DIRS still defined"; td = tempfile.mkdtemp(); state.STATE_DIR = os.path.join(td, ".job-scout"); state.STATE_PATH = os.path.join(state.STATE_DIR, "state.json"); dd = os.path.join(td, "JobSearch"); os.makedirs(dd); state.write_state(dd, "0.4.0"); fm = stat.S_IMODE(os.stat(state.STATE_PATH).st_mode); dm = stat.S_IMODE(os.stat(state.STATE_DIR).st_mode); assert fm == 0o600, f"file mode {oct(fm)}"; assert dm == 0o700, f"dir mode {oct(dm)}"; os.chmod(state.STATE_PATH, 0o644); os.chmod(state.STATE_DIR, 0o755); s = state.read_state(); assert s["data_dir"] == dd; fm = stat.S_IMODE(os.stat(state.STATE_PATH).st_mode); dm = stat.S_IMODE(os.stat(state.STATE_DIR).st_mode); assert fm == 0o600 and dm == 0o700, f"after read fm={oct(fm)} dm={oct(dm)}"; assert state.resolve_data_dir() == dd; os.remove(state.STATE_PATH); assert state.resolve_data_dir() == ""; print("OK")'</automated>
   </verify>
   <acceptance_criteria>
     - `grep -c "LEGACY_DATA_DIRS" scripts/state.py` = `0`
@@ -294,23 +294,19 @@ def detect_header_rows(filepath):
 </task>
 
 <task type="auto" tdd="true">
-  <name>Task 3: Delete dead summary block in consolidate_targets.py + add header-detection guard in mine_connections.py</name>
-  <files>scripts/consolidate_targets.py, scripts/mine_connections.py</files>
+  <name>Task 3a: Delete dead `already_applied` summary block in consolidate_targets.py (CON-01)</name>
+  <files>scripts/consolidate_targets.py</files>
   <read_first>
     - scripts/consolidate_targets.py (lines 260-289 — the consolidate() summary print block + main entry)
-    - scripts/mine_connections.py (lines 29-77 — detect_header_rows + the start of mine_connections that uses it)
-    - .planning/phases/01-schema-migration-paths-foundational-cleanup/01-RESEARCH.md (CON-01 reframe at line 76 + Pitfall 3 at lines 610-620: "warn-and-continue masks a fatal mismatch — error-and-abort on no-recognizable-columns")
+    - .planning/phases/01-schema-migration-paths-foundational-cleanup/01-RESEARCH.md (CON-01 reframe at line 76)
   </read_first>
   <behavior>
     - Test 1: After this task, `grep -c "already_applied" scripts/consolidate_targets.py` = 0.
     - Test 2: `grep -c "Companies already applied to" scripts/consolidate_targets.py` = 0.
     - Test 3: `consolidate()` against a v=3 master_targets.csv runs end-to-end with no exception and prints `Companies with connections: <N>` (the OTHER summary line, retained).
-    - Test 4: `mine_connections.py` against a Spanish-localized fixture (no "First Name" or "Company" anywhere) prints `WARNING: detect_header_rows fell through` to stderr.
-    - Test 5: After the fallback skiprows=3 produces a column set with no recognizable name/company column, `mine_connections.py` prints `ERROR:` and exits 1.
   </behavior>
   <action>
-
-    **Edit 1 — `scripts/consolidate_targets.py` lines 268-272 (the dead summary block).** Find:
+    **Edit — `scripts/consolidate_targets.py` lines 268-272 (the dead summary block).** Find:
     ```python
         # Print summary
         has_connections = len(master[pd.to_numeric(master['linkedin_connection_count'], errors='coerce').fillna(0) > 0])
@@ -327,7 +323,36 @@ def detect_header_rows(filepath):
         print(f"Companies with connections: {has_connections}")
     ```
 
-    **Edit 2 — `scripts/mine_connections.py` `detect_header_rows` fallback warning.** Find lines 43-45:
+    Do NOT touch `mine_connections.py` in this task — Task 3b owns the CON-03 work there.
+  </action>
+  <verify>
+    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && test "$(grep -c already_applied scripts/consolidate_targets.py)" = "0" && test "$(grep -c "Companies already applied to" scripts/consolidate_targets.py)" = "0" && grep -q "Companies with connections" scripts/consolidate_targets.py && echo OK</automated>
+  </verify>
+  <acceptance_criteria>
+    - `grep -c "already_applied" scripts/consolidate_targets.py` = `0`
+    - `grep -c "Companies already applied to" scripts/consolidate_targets.py` = `0`
+    - `grep -q "Companies with connections" scripts/consolidate_targets.py` returns 0 (the retained summary line)
+    - The verify command prints `OK`
+  </acceptance_criteria>
+  <done>
+    `consolidate_targets.py` no longer references the schema-trimmed `already_applied` column or prints a dead summary line. The "Companies with connections" line is preserved.
+  </done>
+</task>
+
+<task type="auto" tdd="true">
+  <name>Task 3b: Add header-detection guard + post-skip column validation in mine_connections.py (CON-03)</name>
+  <files>scripts/mine_connections.py</files>
+  <read_first>
+    - scripts/mine_connections.py (lines 29-77 — detect_header_rows + the start of mine_connections that uses it)
+    - .planning/phases/01-schema-migration-paths-foundational-cleanup/01-RESEARCH.md (Pitfall 3 at lines 610-620: "warn-and-continue masks a fatal mismatch — error-and-abort on no-recognizable-columns")
+  </read_first>
+  <behavior>
+    - Test 1: `mine_connections.py` against a Spanish-localized fixture (no "First Name" or "Company" anywhere) prints `WARNING: detect_header_rows fell through` to stderr.
+    - Test 2: After the fallback skiprows=3 produces a column set with no recognizable name/company column, `mine_connections.py` prints `ERROR:` and exits 1.
+  </behavior>
+  <action>
+
+    **Edit 1 — `scripts/mine_connections.py` `detect_header_rows` fallback warning.** Find lines 43-45:
     ```python
         # Default: skip 3 rows (standard LinkedIn export), try latin-1
         return 3, 'latin-1'
@@ -346,7 +371,7 @@ def detect_header_rows(filepath):
         return 3, 'latin-1'
     ```
 
-    **Edit 3 — `scripts/mine_connections.py` post-skip column validation.** Find the existing block at lines 67-76:
+    **Edit 2 — `scripts/mine_connections.py` post-skip column validation.** Find the existing block at lines 67-76:
     ```python
         # Find the company column
         company_col = None
@@ -393,21 +418,20 @@ def detect_header_rows(filepath):
     ```
 
     The existing line-79 `first_name_col = next(...)` detection still runs after this guard passes — no regression.
+
+    Do NOT touch `consolidate_targets.py` in this task — Task 3a owns the CON-01 work there.
   </action>
   <verify>
-    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && test "$(grep -c already_applied scripts/consolidate_targets.py)" = "0" && test "$(grep -c "Companies already applied to" scripts/consolidate_targets.py)" = "0" && grep -q "WARNING: detect_header_rows fell through" scripts/mine_connections.py && grep -q "has_name_col" scripts/mine_connections.py && grep -q "could not resolve LinkedIn export columns" scripts/mine_connections.py && echo OK</automated>
+    <automated>cd /Users/rmoore/Workspaces/job-scout-plugin && grep -q "WARNING: detect_header_rows fell through" scripts/mine_connections.py && grep -q "has_name_col" scripts/mine_connections.py && grep -q "could not resolve LinkedIn export columns" scripts/mine_connections.py && echo OK</automated>
   </verify>
   <acceptance_criteria>
-    - `grep -c "already_applied" scripts/consolidate_targets.py` = `0`
-    - `grep -c "Companies already applied to" scripts/consolidate_targets.py` = `0`
-    - `grep -q "Companies with connections" scripts/consolidate_targets.py` returns 0 (the retained summary line)
     - `grep -q "WARNING: detect_header_rows fell through" scripts/mine_connections.py` returns 0
     - `grep -q "has_name_col" scripts/mine_connections.py` returns 0
     - `grep -q "could not resolve LinkedIn export columns" scripts/mine_connections.py` returns 0
     - The verify command prints `OK`
   </acceptance_criteria>
   <done>
-    `consolidate_targets.py` no longer references the schema-trimmed `already_applied` column or prints a dead summary line. `mine_connections.py` warns when `detect_header_rows` falls through AND aborts with ERROR if no recognizable name/company column survives — preventing a corrupt `connections_summary.csv` from poisoning `consolidate_targets.py`.
+    `mine_connections.py` warns when `detect_header_rows` falls through AND aborts with ERROR if no recognizable name/company column survives — preventing a corrupt `connections_summary.csv` from poisoning `consolidate_targets.py`.
   </done>
 </task>
 
@@ -434,7 +458,7 @@ def detect_header_rows(filepath):
 </threat_model>
 
 <verification>
-After all 3 tasks complete, run from repo root:
+After all 4 tasks complete (Task 1, Task 2, Task 3a, Task 3b), run from repo root:
 
 ```bash
 # 1. Install hints clean in this plan's files
@@ -448,12 +472,12 @@ grep -q "_harden_perms(STATE_PATH, 0o600)" scripts/state.py
 grep -q "_harden_perms(STATE_DIR, 0o700)" scripts/state.py
 echo "state.py OK"
 
-# 3. consolidate_targets cleanup
+# 3. consolidate_targets cleanup (Task 3a / CON-01)
 test "$(grep -c already_applied scripts/consolidate_targets.py)" = "0"
 test "$(grep -c "Companies already applied to" scripts/consolidate_targets.py)" = "0"
 echo "consolidate_targets OK"
 
-# 4. mine_connections guard
+# 4. mine_connections guard (Task 3b / CON-03)
 grep -q "WARNING: detect_header_rows fell through" scripts/mine_connections.py
 grep -q "has_name_col" scripts/mine_connections.py
 echo "mine_connections OK"
@@ -472,9 +496,11 @@ All four `OK` lines must print.
 - `scripts/consolidate_targets.py` no longer references `already_applied` or prints a "Companies already applied to" line
 - `scripts/mine_connections.py` warns to stderr when `detect_header_rows` returns the silent default AND aborts with ERROR if neither a company col nor a name col survives
 - Both `consolidate_targets.py` and `mine_connections.py` use the venv/--user install hint with NO `--break-system-packages` reference
-- All grep-based acceptance criteria pass; all three task verify blocks exit 0
+- All grep-based acceptance criteria pass; all four task verify blocks exit 0
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-SUMMARY.md` summarizing the legacy-chain deletion, perm hardening, dead-block removal, header-detection guard, and the install-hint partition with Plan 01.
+After completion, create `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-SUMMARY.md` summarizing the legacy-chain deletion, perm hardening, dead-block removal (Task 3a), header-detection guard (Task 3b), and the install-hint partition with Plan 01.
 </output>
+</content>
+</invoke>
