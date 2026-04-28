@@ -44,7 +44,12 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
   6. `python3 scripts/consolidate_targets.py --output … --files …` runs end-to-end without `KeyError: 'already_applied'` (CON-01); a tracker append with `application_status="dad"` (typo) is rejected by the new `STATUS_VALUES` enum (CON-02); `mine_connections.py` against a Spanish-localized export logs a warning instead of silently skipping 3 connections (CON-03).
   7. Every `ImportError` in `scripts/` (and the new `scripts/ats/*`) recommends `pipx`/venv instead of `pip install --break-system-packages` (CON-04); `~/.job-scout/state.json` is created with mode `0o600` and `~/.job-scout/` with `0o700` (CON-07); `LEGACY_DATA_DIRS` is either gone (with a one-time `/scout-setup` migration prompt) or `file-contract.md` is updated to acknowledge the fallback chain — pick one (CON-05); a single `companies_per_day` default exists in exactly one place across `templates/config.json`, `scout-run/SKILL.md`, and `search-config.md` (CON-06).
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+- [ ] 01-01-PLAN.md — Schema bump (v=4) + STATUS_VALUES + validate_data wiring + tracker xlsx 16-col extension
+- [ ] 01-02-PLAN.md — state.py legacy chain + perm hardening + consolidate_targets dead block + mine_connections header guard + install hints (2 of 4)
+- [ ] 01-03-PLAN.md — file-contract.md path entries + companies_per_day SSOT consolidation + scout-setup legacy-dir migration prompt
+- [ ] 01-04-PLAN.md — Migration round-trip pytest (tests/test_migration.py + fixture) + phase-wide grep gate
 
 ### Phase 2: Provider Protocol + Greenhouse end-to-end + dispatcher + observability foundations
 
@@ -158,7 +163,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema migration + paths + foundational cleanup | 0/0 | Not started | - |
+| 1. Schema migration + paths + foundational cleanup | 0/4 | Not started | - |
 | 2. Provider Protocol + Greenhouse + dispatcher + observability | 0/0 | Not started | - |
 | 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 0/0 | Not started | - |
 | 4. Remaining providers + JSON-LD + filtering | 0/0 | Not started | - |
