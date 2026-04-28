@@ -1,0 +1,24 @@
+{
+  "mode": "yolo",
+  "granularity": "standard",
+  "parallelization": true,
+  "commit_docs": true,
+  "model_profile": "quality",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true,
+    "auto_advance": true
+  },
+  "models": {
+    "researcher": "claude-opus-4-7",
+    "synthesizer": "claude-opus-4-7",
+    "roadmapper": "claude-opus-4-7",
+    "planner": "claude-opus-4-7",
+    "plan_checker": "claude-opus-4-7",
+    "verifier": "claude-opus-4-7",
+    "executor": "claude-sonnet-4-6",
+    "mapper": "claude-sonnet-4-6"
+  }
+}
