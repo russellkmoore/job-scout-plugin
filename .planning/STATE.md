@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-27 (post-roadmap creation)
+**Last updated:** 2026-04-28 (post-Plan 01-01 execution)
 
 ## Project Reference
 
@@ -20,13 +20,17 @@
 ## Current Position
 
 **Phase:** 1 — Schema verification + paths + migration smoke-test
-**Plan:** None yet (run `/gsd-plan-phase 1` to decompose)
-**Status:** Roadmap complete; ready for phase planning
+**Plan:** 01-01 complete (schema v=4 + STATUS_VALUES + validators + venv install hints); 01-02, 01-03, 01-04 remaining
+**Status:** Phase 1 in progress — Plan 01-01 of 4 complete
 
-**Progress:** 0/6 phases complete
+**Progress:** 0/6 phases complete (1/4 plans in Phase 1 complete)
 
 ```
-[ ] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs)
+[~] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 1/4 plans complete
+    [x] Plan 01-01 — schema.py v=4 + STATUS_VALUES + validate_runs_log/ensure_today_subdirs + venv install hints (SCH-01..04, CON-02, CON-04 sites 1-2 of 4)
+    [ ] Plan 01-02 — file-contract.md paths + sister CON-04 sites
+    [ ] Plan 01-03 — docs/skills schema sync
+    [ ] Plan 01-04 — migration smoke-test + grep gates
 [ ] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs)
 [ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
 [ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
@@ -114,15 +118,23 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-27 — roadmap created.
+**Last session ended:** 2026-04-28 — Plan 01-01 executed (schema.py v=4, STATUS_VALUES + helper, validate_runs_log/ensure_today_subdirs, tracker_utils status validation + 16-col rows, venv install hints in validate_data.py + tracker_utils.py).
 
-**Next action:** `/gsd-plan-phase 1` to decompose Phase 1 (Schema verification + paths + migration smoke-test) into executable plans. With `parallelization=true` in config.json, plan-checker can run in parallel after planning.
+**Plan 01-01 deliverables:**
+- `scripts/schema.py` v=4 (commit 856d170)
+- `scripts/validate_data.py` validators + venv hint (commits 77fb7b7, 9e6546f)
+- `scripts/tracker_utils.py` status validation + 16-col rows + venv hint (commit 3b86340)
+- SUMMARY at `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-01-schema-SUMMARY.md`
+
+**Architectural item flagged for Phase 5:** Pre-existing `"Stale — Verify"` status string in `tracker_utils.py:203` is now warn-coerced to `"Active"` by the new `STATUS_VALUES` validator. Non-data-destructive (row still written, stderr WARNING) but loses the user-facing stale flag. Three resolution paths possible — defer to Phase 5 tracker cleanup. See SUMMARY Deviation 2.
+
+**Next action:** Execute Plan 01-02 (file-contract.md paths + sister CON-04 sites in `consolidate_targets.py` and `mine_connections.py`).
 
 **On resume, read in order:**
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/ROADMAP.md` for the phase definition + success criteria
-3. `.planning/REQUIREMENTS.md` for the 6 SCH-* requirements that map to Phase 1
-4. `.planning/research/SUMMARY.md` Reconciliation #1 for the schema-version decision context
+2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-01-schema-SUMMARY.md` for completed plan context
+3. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-cleanup-PLAN.md` for next plan
+4. `.planning/ROADMAP.md` for the phase definition + success criteria
 
 ---
-*State initialized: 2026-04-27 by /gsd-new-project (roadmapper)*
+*Plan 01-01 executed: 2026-04-28 by sequential executor agent. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
