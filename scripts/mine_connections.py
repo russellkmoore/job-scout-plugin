@@ -22,7 +22,12 @@ from collections import defaultdict
 try:
     import pandas as pd
 except ImportError:
-    print("ERROR: pandas not installed. Run: pip install pandas --break-system-packages", file=sys.stderr)
+    print(
+        "ERROR: pandas not installed. Install with: "
+        "python3 -m venv ~/.job-scout-venv && source ~/.job-scout-venv/bin/activate && pip install pandas"
+        "  (or: pip install --user pandas)",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
