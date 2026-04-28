@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-28 (post-Plan 01-02 execution)
+**Last updated:** 2026-04-28 (post-Plan 01-03 execution)
 
 ## Project Reference
 
@@ -20,16 +20,16 @@
 ## Current Position
 
 **Phase:** 1 — Schema verification + paths + migration smoke-test
-**Plan:** 01-01 + 01-02 complete (Wave 1 done — all `scripts/`-tier work landed); 01-03, 01-04 remaining
-**Status:** Phase 1 in progress — 2/4 plans complete
+**Plan:** 01-01 + 01-02 + 01-03 complete (Wave 1 + Wave 2 docs done); 01-04 (migration smoke-test) remaining
+**Status:** Phase 1 in progress — 3/4 plans complete
 
-**Progress:** 0/6 phases complete (2/4 plans in Phase 1 complete)
+**Progress:** 0/6 phases complete (3/4 plans in Phase 1 complete)
 
 ```
-[~] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 2/4 plans complete
+[~] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 3/4 plans complete
     [x] Plan 01-01 — schema.py v=4 + STATUS_VALUES + validate_runs_log/ensure_today_subdirs + venv install hints (SCH-01..04, CON-02, CON-04 sites 1-2 of 4)
-    [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05, CON-07)
-    [ ] Plan 01-03 — docs/skills schema sync
+    [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05 scripts/-side, CON-07)
+    [x] Plan 01-03 — docs/skills schema sync (file-contract.md path entries SCH-06; companies_per_day SSOT to templates/config.json CON-06; scout-setup legacy-dir migration prompt CON-05 user-facing)
     [ ] Plan 01-04 — migration smoke-test + grep gates
 [ ] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs)
 [ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
@@ -118,7 +118,7 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — Plan 01-02 executed (state.py `_harden_perms` 0o600/0o700 + LEGACY_DATA_DIRS deletion; consolidate_targets.py dead-`already_applied`-block deletion; mine_connections.py header-detection WARNING + post-skip company-AND-name column guard; venv install hints in consolidate_targets.py + mine_connections.py — closing CON-04 partition).
+**Last session ended:** 2026-04-28 — Plan 01-03 executed (file-contract.md gained `runs.jsonl` + `daily/<DATE>/ats_raw/` rows in the SSOT path tables; `companies_per_day` inline numeric defaults removed from `skills/scout-run/SKILL.md` + `skills/job-scout/references/search-config.md` and replaced with prose pointing at `templates/config.json` (canonical at value 5); `skills/scout-setup/SKILL.md` Step 1 now has a new question 4 detecting v0.3 legacy data dirs and prompting reuse via inline `state.py write` — closing CON-05 user-facing half).
 
 **Plan 01-01 deliverables (prior session):**
 
@@ -138,14 +138,26 @@ None at roadmap stage.
 
 **Architectural item still flagged for Phase 5:** Pre-existing `"Stale — Verify"` status string in `tracker_utils.py:203` is warn-coerced to `"Active"` by the STATUS_VALUES validator (Plan 01-01). Non-data-destructive but loses the user-facing stale flag. Phase 5 tracker cleanup owns resolution.
 
-**Next action:** Execute Plan 01-03 (docs/skills schema sync — file-contract.md + skills/job-scout/references and SKILL.md updates to v=4 schema and the post-LEGACY-chain `/scout-setup` flow).
+**Plan 01-03 deliverables (this session):**
+
+- `skills/job-scout/references/file-contract.md` — added `runs.jsonl` row to Persistent files table + `daily/<DATE>/ats_raw/` row to Per-run output table (commit 9c13181)
+- `skills/scout-run/SKILL.md` — line 73 inline `(default 8)` removed, replaced with prose pointing at `templates/config.json` (commit 2e84994; user's pre-existing uncommitted edits to lines 5 + 80-93 preserved untouched)
+- `skills/job-scout/references/search-config.md` — line 43 inline `(default 8 in older configs, default 5 in template)` removed, replaced with prose pointing at `templates/config.json` (commit 2e84994)
+- `skills/scout-setup/SKILL.md` — Step 1 question 4 inserted: detects 3 v0.3 legacy paths, prompts reuse, calls `state.py write` inline; original question 4 renumbered to 5 (commit 89971d4)
+- SUMMARY at `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-docs-SUMMARY.md`
+
+**CON-05 user-facing closeout.** Plan 01-02 deleted `LEGACY_DATA_DIRS` from `scripts/state.py` (scripts side); Plan 01-03 added the user-facing `/scout-setup` Step 1 prompt that detects + reuses legacy data dirs by calling `state.py write` inline. Together: existing v0.3 users get a graceful upgrade path on first re-run of `/scout-setup`, and a fresh v0.4 user with no legacy dirs falls through to the existing fresh-setup flow.
+
+**Phase 1 status:** 3/4 plans complete. Plan 01-04 (migration smoke-test + phase-wide grep gates including `grep -rc 'break-system-packages' scripts/ = 0`) is the only remaining plan. Plan 01-04 is independent of 01-03 and can run as the next sequential step.
+
+**Next action:** Execute Plan 01-04 (migration round-trip pytest + phase-wide grep gates).
 
 **On resume, read in order:**
 
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-cleanup-SUMMARY.md` for the most recent plan context
-3. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-*-PLAN.md` for the next plan (filename TBD when planner runs)
+2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-docs-SUMMARY.md` for the most recent plan context
+3. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-*-PLAN.md` for the next plan
 4. `.planning/ROADMAP.md` for the phase definition + success criteria
 
 ---
-*Plan 01-02 executed: 2026-04-28 by sequential executor agent. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
+*Plan 01-03 executed: 2026-04-28 by sequential executor agent. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
