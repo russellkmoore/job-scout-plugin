@@ -1,0 +1,4 @@
+company_name,industry,career_page_url,ats_provider,ats_board_url,connection_names,linkedin_connection_count,application_status,fit_notes,last_checked,data_source,my_notes
+Stripe,Fintech,https://stripe.com/jobs,greenhouse,https://boards.greenhouse.io/stripe,Alice Smith (Eng Manager); Bob Jones (Director),5,,Strong commerce fit,2026-04-20,linkedin_connections,investigate Q3
+lululemon,Retail,https://careers.lululemon.com,workday,https://lululemon.wd5.myworkdayjobs.com/careers,,3,Applied 2026-03-12 / no response,Tech leadership ladder is real,2026-04-15,user_csv,
+Acme,,,,,,0,Dead,passed on 2026-Q1,2026-01-10,scout_discovered,
