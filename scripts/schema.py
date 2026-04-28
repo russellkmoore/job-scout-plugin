@@ -31,9 +31,57 @@ MASTER_TARGETS_COLUMNS = [
     "fit_notes",               # Why this company matters (or doesn't). Free text.
     "last_checked",            # ISO date the scout last looked at this company. Used to prioritize stale ones.
     "data_source",             # Where this row came from: linkedin_connections, user_csv, scout_discovered, etc.
+    "ats_slug_confidence",     # v=4: float 0.0–1.0 (or empty) — populated by /scout-detect (Phase 3)
+    "last_ats_hit_date",       # v=4: ISO date (or empty) — last day Pass 1 returned ≥1 listing for this company
 ]
 
-MASTER_TARGETS_VERSION = 3  # v3: trimmed dead-weight cols (pipeline_tier, location, warm_path, already_applied, roles_applied_for, fit_score, what_they_do). Keeps `notes` as user free-form column outside schema.
+# v4 (2026-04 v0.4): added ats_slug_confidence + last_ats_hit_date for ATS-first sourcing.
+# Migration is column-by-column additive in validate_data.validate_master_targets()
+# — version bump is a user-visible breadcrumb only, NOT a migration dispatch trigger.
+MASTER_TARGETS_VERSION = 4
+
+
+# =====================================================================
+# Status enum — drives application_status validation on tracker append
+# =====================================================================
+#
+# Eliminates magic-string drift (`Dead` vs `dead` vs `DEAD`). Validation runs
+# in tracker_utils.append_rows; unknown values warn-and-coerce to "Active"
+# (preserves the existing "never deletes user data" semantic from validate_data.py).
+#
+# "New" is the canonical default for freshly-found, untriaged rows — preserves the
+# v=3 tracker_utils.append_rows() default of `row_dict.get("status", "New")`.
+
+STATUS_VALUES = frozenset({
+    "",                # not yet processed
+    "New",             # freshly found, not yet triaged (default for absent status)
+    "Active",          # currently considering
+    "Applied",         # applied, awaiting response
+    "Interviewing",    # interview in progress
+    "Offer",           # offer extended
+    "Rejected",        # explicit rejection
+    "Dead",            # company is no longer hiring / role gone
+    "Closed",          # we closed the loop ourselves (declined/withdrew)
+})
+
+
+def normalize_application_status(value):
+    """
+    Validate or coerce an application_status value against STATUS_VALUES.
+
+    Returns (canonical_value, was_coerced).
+      - None -> ("", False)
+      - exact case match -> (canonical, False)
+      - case-insensitive match -> (canonical, True)
+      - unknown -> ("Active", True)
+    """
+    if value is None:
+        return "", False
+    s = str(value).strip()
+    for canonical in STATUS_VALUES:
+        if s.lower() == canonical.lower():
+            return canonical, s != canonical
+    return "Active", True
 
 
 # =====================================================================
@@ -61,6 +109,9 @@ TRACKER_COLUMNS = [
     "Resume File",
     "Status",
     "Notes",
+    # v0.4: source + ats_provider tracking — values are ats:greenhouse|ats:lever|...|linkedin or empty
+    "Source",
+    "ATS Provider",
 ]
 
 # Lowercase keys used in the JSON payload passed to tracker_utils.py append.
@@ -80,11 +131,14 @@ TRACKER_JSON_KEYS = [
     "resume_file",
     "status",
     "notes",
+    # v0.4: source + ats_provider tracking — values are ats:greenhouse|ats:lever|...|linkedin or empty
+    "source",
+    "ats_provider",
 ]
 
 # Column widths in the same order as TRACKER_COLUMNS. Adjust here if a
 # column needs more room — don't fiddle with widths in tracker_utils.py.
-TRACKER_COL_WIDTHS = [12, 45, 20, 25, 20, 8, 6, 12, 40, 50, 14, 30, 16, 50]
+TRACKER_COL_WIDTHS = [12, 45, 20, 25, 20, 8, 6, 12, 40, 50, 14, 30, 16, 50, 18, 16]
 
 
 # =====================================================================
