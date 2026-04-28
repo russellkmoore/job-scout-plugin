@@ -14,7 +14,7 @@ Usage from prompt:
     python3 scripts/state.py read           # prints data_dir or empty string
     python3 scripts/state.py read-json      # prints full state json
     python3 scripts/state.py write <data_dir>
-    python3 scripts/state.py resolve        # prints resolved data_dir, falling back through legacy paths
+    python3 scripts/state.py resolve        # prints resolved data_dir from state.json (exits 2 if not configured)
 """
 
 import json
@@ -25,21 +25,40 @@ from datetime import datetime
 STATE_DIR = os.path.expanduser("~/.job-scout")
 STATE_PATH = os.path.join(STATE_DIR, "state.json")
 
-# Legacy fallback locations — checked in order if state.json is missing.
-# The scout/ subdirectory pattern is preferred when the user keeps personal
-# job-search materials (resumes, application folders) at the top level and
-# wants scout's working data confined to a subfolder.
-LEGACY_DATA_DIRS = [
-    "~/Documents/JobSearch/scout",
-    "~/Documents/JobSearch",
-    "~/Documents/JobScout",
-]
+
+def _harden_perms(path, mode):
+    """Best-effort chmod; warn on failure but don't abort.
+
+    Hardens local-state perms so other users on shared macOS systems cannot
+    read the data_dir path. Sandboxed environments / NFS root_squash homes may
+    reject the chmod — log and continue (the plugin still works at default perms).
+    """
+    try:
+        os.chmod(path, mode)
+    except OSError as e:
+        print(
+            f"WARNING: could not chmod {path} to {oct(mode)}: {e}. "
+            f"State file remains at default permissions; consider hardening manually.",
+            file=sys.stderr,
+        )
+
+
+# v0.4 (CON-05): Legacy fallback chain removed. file-contract.md mandates
+# "no fallbacks." If state.json is missing, /scout-setup is responsible for
+# detecting any pre-existing data dir and prompting the user. resolve_data_dir
+# below now returns "" when state.json is missing — caller MUST run /scout-setup.
 
 
 def read_state():
-    """Return state dict, or empty dict if not present / unreadable."""
+    """Return state dict, or empty dict if not present / unreadable.
+
+    v0.4 CON-07: idempotently re-applies chmod 0o600/0o700 to harden any
+    existing v0.3 state.json files (default perms 0o644) on first v0.4 read.
+    """
     if not os.path.exists(STATE_PATH):
         return {}
+    _harden_perms(STATE_PATH, 0o600)
+    _harden_perms(STATE_DIR, 0o700)
     try:
         with open(STATE_PATH, "r") as f:
             return json.load(f)
@@ -48,8 +67,12 @@ def read_state():
 
 
 def write_state(data_dir, plugin_version=None):
-    """Write the state pointer. Creates ~/.job-scout/ if needed."""
+    """Write the state pointer. Creates ~/.job-scout/ if needed.
+
+    v0.4 CON-07: hardens perms to 0o700 (dir) + 0o600 (file) best-effort.
+    """
     os.makedirs(STATE_DIR, exist_ok=True)
+    _harden_perms(STATE_DIR, 0o700)
     data_dir = os.path.expanduser(data_dir)
     state = {
         "data_dir": data_dir,
@@ -58,15 +81,18 @@ def write_state(data_dir, plugin_version=None):
     }
     with open(STATE_PATH, "w") as f:
         json.dump(state, f, indent=2)
+    _harden_perms(STATE_PATH, 0o600)
     return state
 
 
 def resolve_data_dir():
     """
-    Return the user's data directory, in priority order:
-      1. ~/.job-scout/state.json -> data_dir
-      2. First legacy path that exists and contains config.json
-      3. Empty string if nothing found (caller must prompt /scout-setup)
+    Return the user's data directory:
+      1. ~/.job-scout/state.json -> data_dir (if dir exists)
+      2. Empty string if not configured (caller MUST run /scout-setup)
+
+    v0.4 CON-05: legacy fallback chain removed. /scout-setup detects pre-existing
+    data dirs and prompts the user once on first v0.4 run.
     """
     state = read_state()
     candidate = state.get("data_dir")
@@ -74,12 +100,6 @@ def resolve_data_dir():
         candidate = os.path.expanduser(candidate)
         if os.path.isdir(candidate):
             return candidate
-
-    for legacy in LEGACY_DATA_DIRS:
-        legacy_expanded = os.path.expanduser(legacy)
-        if os.path.isfile(os.path.join(legacy_expanded, "config.json")):
-            return legacy_expanded
-
     return ""
 
 
