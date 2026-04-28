@@ -70,7 +70,7 @@ Never enter credentials. Never click anything that looks like a payment, profile
 
 ## Step 2: Pass 1 — Company-first deep-dive (≈60% of budget)
 
-This is the highest-signal pass. Pick `companies_per_day` companies (default 8) from `master_targets.csv`:
+This is the highest-signal pass. Pick `companies_per_day` companies (see `companies_per_day` in `templates/config.json`) from `master_targets.csv`:
 
 - Sort: `linkedin_connection_count` desc, then `last_checked` ascending (oldest first), then `application_status` (skip those with `Dead`).
 - Take the top `companies_per_day` rows.

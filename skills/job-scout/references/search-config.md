@@ -40,7 +40,7 @@ If a pass finishes under-budget, **do not roll over** to later passes. Under-bud
 
 1. Read `<data_dir>/master_targets.csv`.
 2. Sort: `linkedin_connection_count` desc, then `last_checked` ascending (oldest first), then exclude `application_status = "Dead"`.
-3. Take the top `config.search.companies_per_day` rows (default 8 in older configs, default 5 in template).
+3. Take the top `config.search.companies_per_day` rows (see `companies_per_day` in `templates/config.json` for the canonical default).
 4. For each company:
    - **Career page** (`career_page_url`). Direct, full JDs.
    - **ATS board** (`ats_board_url`, if populated). If empty, detect from `career_page_url` redirect target — `boards.greenhouse.io/X`, `jobs.lever.co/X`, `myworkdayjobs.com/...`, `<company>.ashbyhq.com` — and populate `ats_provider` + `ats_board_url` for next time.
