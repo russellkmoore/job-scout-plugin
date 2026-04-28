@@ -271,10 +271,11 @@ def consolidate(output_path, file_paths=None, connections_path=None, scan_dir=No
     print(f"\nMaster targets written to: {output_path}")
 
     # Print summary
+    # CON-01: dead applied-status summary block deleted in v0.4 — the underlying
+    # column was removed in v=3 schema trim, so the guarded expression always
+    # evaluated to 0.
     has_connections = len(master[pd.to_numeric(master['linkedin_connection_count'], errors='coerce').fillna(0) > 0])
-    has_applied = len(master[master['already_applied'].str.upper() == 'Y']) if 'already_applied' in master.columns else 0
     print(f"Companies with connections: {has_connections}")
-    print(f"Companies already applied to: {has_applied}")
 
 
 if __name__ == "__main__":
