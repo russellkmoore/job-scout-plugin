@@ -46,7 +46,15 @@ def detect_header_rows(filepath):
         except UnicodeDecodeError:
             continue
 
-    # Default: skip 3 rows (standard LinkedIn export), try latin-1
+    # CON-03: fallback to standard LinkedIn export shape — but warn loudly. The caller
+    # validates after pd.read_csv that a recognizable column set survived; if not,
+    # mine_connections aborts with a clear ERROR.
+    print(
+        f"WARNING: detect_header_rows fell through to (3, 'latin-1') default for "
+        f"{filepath} — could not find 'First Name' or 'Company' header in any encoding. "
+        f"This may indicate a non-English LinkedIn export or a format change.",
+        file=sys.stderr,
+    )
     return 3, 'latin-1'
 
 
@@ -69,6 +77,11 @@ def mine_connections(connections_path, output_path):
     # Normalize column names (LinkedIn sometimes changes casing)
     df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
 
+    # CON-03: post-skip column validation. If neither a company column nor a
+    # recognizable name column survived, the header-detection fallback almost
+    # certainly produced garbage. Abort loudly rather than write a corrupt
+    # connections_summary.csv that consolidate_targets.py will silently consume.
+
     # Find the company column
     company_col = None
     for candidate in ['company', 'company_name', 'organization']:
@@ -76,8 +89,22 @@ def mine_connections(connections_path, output_path):
             company_col = candidate
             break
 
-    if not company_col:
-        print(f"ERROR: Could not find company column. Available: {list(df.columns)}", file=sys.stderr)
+    # Find a recognizable name column (used downstream for connection_names output)
+    has_name_col = (
+        any('first' in c and 'name' in c for c in df.columns)
+        or any('last' in c and 'name' in c for c in df.columns)
+    )
+
+    if not company_col or not has_name_col:
+        print(
+            f"ERROR: mine_connections could not resolve LinkedIn export columns. "
+            f"company_col={company_col!r}, has_name_col={has_name_col}. "
+            f"Available columns: {list(df.columns)}. "
+            f"This usually means detect_header_rows fell through (see prior WARNING) "
+            f"on a non-English export or a LinkedIn format change. "
+            f"Verify the input file or open an issue with a sanitized sample.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Find name columns
