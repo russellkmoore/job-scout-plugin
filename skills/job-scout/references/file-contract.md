@@ -33,6 +33,7 @@ Format:
 | Tracker | `{data_dir}/JobScout_Tracker.xlsx` | `/scout-run` via `tracker_utils.py append` ONLY. Never write directly. |
 | Honest assessment | `{data_dir}/assessment/Honest_Career_Assessment.md` | `/scout-setup` |
 | Resume bank | `{data_dir}/Resumes/` | User-curated. Scout reads, never writes. |
+| Run telemetry log | `{data_dir}/runs.jsonl` | `/scout-run` (appends one JSON line per run; created empty by `validate_data.py:validate_runs_log` at first run startup). v0.4 SCH-01. |
 
 **Schema for `master_targets.csv` and `JobScout_Tracker.xlsx` lives in `scripts/schema.py`.** Never inline column lists. If a column is referenced by name in a prompt, it must match `MASTER_TARGETS_COLUMNS` or `TRACKER_COLUMNS` exactly.
 
@@ -48,6 +49,7 @@ For run on date `<DATE>` (ISO `YYYY-MM-DD`):
 | Run log | `{data_dir}/daily/<DATE>/run_log.json` |
 | New rows for tracker | `{data_dir}/daily/<DATE>/new_rows.json` (input to `tracker_utils.py append`) |
 | Per-A-tier packets (on demand) | `{data_dir}/daily/<DATE>/packets/<Company>_<Role>/` |
+| ATS raw payloads | `{data_dir}/daily/<DATE>/ats_raw/` (one file per provider response, created by `validate_data.py:ensure_today_subdirs` at run start). v0.4 SCH-02. |
 
 **Per-A-tier packet contents** (when generated via the hybrid on-demand flow):
 ```
