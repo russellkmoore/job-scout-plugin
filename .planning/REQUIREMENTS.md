@@ -5,7 +5,7 @@
 
 ## v1 Requirements
 
-Requirements for the v0.4 release. Each maps to exactly one roadmap phase. IDs use category prefixes: `SCH` (schema), `DSP` (dispatcher), `DET` (detection), `PRV` (provider modules), `DDP` (dedup/scoring), `OBS` (observability), `OUT` (output/cleanup), `STR` (stretch P1).
+Requirements for the v0.4 release. Each maps to exactly one roadmap phase. IDs use category prefixes: `SCH` (schema), `DSP` (dispatcher), `DET` (detection), `PRV` (provider modules), `DDP` (dedup/scoring), `OUT` (output/cleanup), `STR` (stretch P1), `CON` (concerns cleanup — surgical fixes from `.planning/codebase/CONCERNS.md`, distributed into the v0.4 phase that touches the same code).
 
 ### Schema (SCH)
 
@@ -79,6 +79,43 @@ Requirements for the v0.4 release. Each maps to exactly one roadmap phase. IDs u
 - [ ] **STR-03**: Per-provider `posted_date_max_age_days` override via `config.json` (e.g. Workday 90d because tenants are slower to repost; Greenhouse 30d because rapid churn) — falls back to global `ats.posted_date_max_age_days`
 - [ ] **STR-04**: `/scout-detect` is idempotent — re-running on the same CSV is a no-op unless `--force` is passed; respects `ats_provider=manual` lock from STR-02
 
+### Concerns cleanup (CON)
+
+Surgical fixes for items in `.planning/codebase/CONCERNS.md`. Each is folded into the v0.4 phase that already touches the same file or surface area; there is no dedicated cleanup phase. Bug-class items are non-deferrable; reliability/security items reflect the user-chosen "all non-deferred concerns" scope. Performance/scaling/dependency-shape concerns (sqlite migration, pandas removal, sequential-board parallelism) are deferred to v0.5+.
+
+**Folded into Phase 1 (validate_data, schema, scripts/, state.py, templates):**
+
+- [ ] **CON-01**: Fix `scripts/consolidate_targets.py:270` `KeyError` on `master['already_applied']` — the column was removed in v=3 schema trim. Drop the dead summary block (lines ~270–272) so `consolidate()` no longer crashes on any non-legacy file.
+- [ ] **CON-02**: Add `STATUS_VALUES` enum to `scripts/schema.py` (e.g. `{"Active", "Applied", "Interviewing", "Offer", "Rejected", "Dead", "Closed"}`) and validate on tracker append in `tracker_utils.py` — eliminates the `Dead | dead | DEAD | Closed` magic-string drift that today silently re-includes dead companies.
+- [ ] **CON-03**: Fix `scripts/mine_connections.py:29-45` header detection — log a `WARNING:` to stderr when falling back to the default `(3, 'latin-1')`, AND validate that the resolved column set includes a recognizable name/company column before reading; abort with a clear message if not (today: silently throws away 3 connections per run on Spanish/localized exports).
+- [ ] **CON-04**: Switch all 4 scripts' `ImportError` install hints from `pip install <pkg> --break-system-packages` to `pipx install <pkg>` or `python3 -m venv` recommendation (`scripts/validate_data.py:29`, `scripts/tracker_utils.py:31`, `scripts/consolidate_targets.py:26`, `scripts/mine_connections.py:25`); also update the new `scripts/ats/*` import-error handlers (Phase 2) to match.
+- [ ] **CON-05**: Resolve the `LEGACY_DATA_DIRS` contradiction with `references/file-contract.md` ("No alternate paths. No fallbacks. No 'or'.") — recommend deleting the legacy fallback chain in `scripts/state.py:32-36` and emitting a one-time migration prompt in `/scout-setup` if any legacy dir exists. Update `file-contract.md` to confirm "no fallbacks" is now enforced.
+- [ ] **CON-06**: Pick a single canonical `companies_per_day` default and align all three drift sites: `templates/config.json:32` (currently 5), `skills/scout-run/SKILL.md:73` (currently quotes 8), `references/search-config.md:43` (reconciles "5 vs 8"). Recommend defer-to-template approach: remove the inline default from both skill docs and replace with "see `templates/config.json`."
+- [ ] **CON-07**: Harden file permissions on the local state pointer — after creating `~/.job-scout/` directory and `state.json`, call `os.chmod(STATE_DIR, 0o700)` and `os.chmod(STATE_PATH, 0o600)` in `scripts/state.py:52` so other local users on shared macOS systems cannot read the data_dir path.
+
+**Folded into Phase 3 (file-contract.md, skill-doc updates as part of /scout-detect introduction):**
+
+- [ ] **CON-08**: Fix the 3 dead `commands/scout-run.md` references (the `commands/` directory was removed in commit `1d31872`): `skills/job-scout/SKILL.md:46`, `skills/job-scout/SKILL.md:105`, `skills/job-scout/references/search-config.md:28` — rewrite each to point at `skills/scout-run/SKILL.md`.
+
+**Folded into Phase 5 (touches scoring-rubric, scout-run/SKILL.md, tracker_utils — same surfaces being modified for dedup/tier/enrich):**
+
+- [ ] **CON-09**: Rewrite the dead `pipeline_tier <= 2` Pass 1 priority in `references/search-config.md:52` to use `linkedin_connection_count` thresholds — the `pipeline_tier` column was removed in v=3 schema trim and currently produces undefined behavior at scoring time.
+- [ ] **CON-10**: Rewrite the dead `pipeline_tier 1-3` +5 bonus row in `references/scoring-rubric.md:111` to be `linkedin_connection_count`-driven (or `data_source`-driven if connection-count alone is too noisy) — same root cause as CON-09. Coordinate with DDP-05 since both edit the rubric.
+- [ ] **CON-11**: Add LinkedIn rate-limit/backoff rule to the new `scout-run/SKILL.md` Step 5 (enrich): "between every 5 LinkedIn navigations, pause 10–15 seconds" — prevents captcha walls during enrichment runs that hit many A-tier ATS candidates in sequence.
+- [ ] **CON-12**: Make LinkedIn JD lazy-load resilient in `references/chrome-setup.md:36-46` and `scout-run/SKILL.md` enrichment step — try multiple selectors for the "...more" button (e.g. `...more`, `Show more`, `aria-label="Expand description"`), retry once with a longer wait if `get_page_text` returns < 500 chars after the dance, log JD-extraction failures to `runs.jsonl` so trend regression is visible.
+- [ ] **CON-13**: Split `scripts/tracker_utils.py:65-70` `extract_job_id` into two functions: `extract_linkedin_job_id(url)` (anchored to `linkedin\.com/jobs/(?:view|search)/.*?(\d{10,})`, returns `None` for non-LinkedIn URLs) and `extract_dedup_key(url)` (URL-as-string fallback for non-LinkedIn rows); migrate all 4 callers (`load_tracker`, `append_rows`, `is_stale_by_id`, `rebuild`) explicitly. Fixes false stale-flagging on career-page URLs and prevents un-deduping cascade on regex tightening.
+- [ ] **CON-14**: Rename `scripts/tracker_utils.py:194-199` local variable `skipped_stale` to `flagged_stale_count` to match the returned dict key at line 229; remove the misleading `# Still add it, but flagged` inline comment so future maintainers don't add a `continue` and silently break the contract.
+- [ ] **CON-15**: Add Pass 2 board-broken warning rule to `scout-run/SKILL.md` Step 3 — if a Pass 2 board (Wellfound, Built In Seattle, HN Algolia, YC Work at a Startup) returned 0 results for ≥3 of the last 5 runs (per `runs.jsonl`), surface "board appears broken" in the report's *Honest notes* section. Same mechanism as DDP-08 (ATS regression suspect).
+- [ ] **CON-20**: Modify `scripts/tracker_utils.py:_write_tracker` (lines 264–315) to preserve user-added xlsx columns on append — today the read-back path drops any column not in `TRACKER_COLUMNS` at line 296 (`if col > len(HEADERS): break`), then `_write_tracker` rebuilds the workbook without them. Capture extra columns into a passthrough buffer when reading existing rows; re-emit them at the end of each row on rewrite.
+
+**Folded into Phase 6 (touches plugin.json, README, skill versions, post-run validation as part of milestone close):**
+
+- [ ] **CON-16**: Normalize plugin/skill version sprawl — bump `.claude-plugin/plugin.json` to `0.4.0` AND set every skill's `version:` frontmatter field to `0.4.0` in lockstep (`skills/scout-run/SKILL.md`, `skills/scout-setup/SKILL.md`, `skills/scout-detect/SKILL.md`, `skills/job-scout/SKILL.md`). Coordinates with OUT-06. Document in README that all four ship together going forward; consider a `scripts/release.py` helper for future bumps.
+- [ ] **CON-17**: Delete the inline column list in `skills/job-scout/SKILL.md:38` (currently lists `company_name, pipeline_tier, industry, location, …` which contradicts v=3 schema) — replace with "see `scripts/schema.py:MASTER_TARGETS_COLUMNS` for the canonical column set." Restores the "single source of truth" guarantee that the same paragraph claims.
+- [ ] **CON-18**: Add a PII handling note to `skills/scout-setup/SKILL.md` Step 1 — explicitly state that `<data_dir>/connections_summary.csv` and `master_targets.csv:connection_names` contain LinkedIn connection PII for hundreds of third parties, and warn users not to place `<data_dir>` in iCloud, Dropbox, OneDrive, or any synced folder.
+- [ ] **CON-19**: Add a `.gitignore` template entry pattern + a setup-skill warning that `<data_dir>/config.json` contains a plaintext absolute path to the user's resume (`candidate.resume_path`) — if shared in a bug report or support thread, it leaks the user's filesystem layout. Recommend always redacting `resume_path` before sharing.
+- [ ] **CON-21**: Add a post-write check at the end of `scout-run/SKILL.md` Step 6 — confirm `report.md` exists, that the report's A-tier count matches the tracker's A-tier count for `<TODAY>`, and that `runs.jsonl` was appended this run; surface a single-line `WARNING: post-run validation failed: <reason>` to stdout if any check fails. Catches the half-written report + fully-updated tracker drift that today is undetectable.
+
 ## v2 Requirements
 
 Deferred to v0.4.x patches or v0.5+. Tracked but not in current roadmap.
@@ -139,67 +176,96 @@ Explicitly excluded from v0.4. Documented to prevent scope creep.
 
 ## Traceability
 
-Will be populated during roadmap creation. Each requirement maps to exactly one phase.
+Every v1 requirement maps to exactly one phase in `.planning/ROADMAP.md`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCH-01 | TBD | Pending |
-| SCH-02 | TBD | Pending |
-| SCH-03 | TBD | Pending |
-| SCH-04 | TBD | Pending |
-| SCH-05 | TBD | Pending |
-| SCH-06 | TBD | Pending |
-| DSP-01 | TBD | Pending |
-| DSP-02 | TBD | Pending |
-| DSP-03 | TBD | Pending |
-| DSP-04 | TBD | Pending |
-| DSP-05 | TBD | Pending |
-| DSP-06 | TBD | Pending |
-| DSP-07 | TBD | Pending |
-| DSP-08 | TBD | Pending |
-| DSP-09 | TBD | Pending |
-| DSP-10 | TBD | Pending |
-| DET-01 | TBD | Pending |
-| DET-02 | TBD | Pending |
-| DET-03 | TBD | Pending |
-| DET-04 | TBD | Pending |
-| DET-05 | TBD | Pending |
-| DET-06 | TBD | Pending |
-| DET-07 | TBD | Pending |
-| PRV-01 | TBD | Pending |
-| PRV-02 | TBD | Pending |
-| PRV-03 | TBD | Pending |
-| PRV-04 | TBD | Pending |
-| PRV-05 | TBD | Pending |
-| PRV-06 | TBD | Pending |
-| PRV-07 | TBD | Pending |
-| PRV-08 | TBD | Pending |
-| PRV-09 | TBD | Pending |
-| DDP-01 | TBD | Pending |
-| DDP-02 | TBD | Pending |
-| DDP-03 | TBD | Pending |
-| DDP-04 | TBD | Pending |
-| DDP-05 | TBD | Pending |
-| DDP-06 | TBD | Pending |
-| DDP-07 | TBD | Pending |
-| DDP-08 | TBD | Pending |
-| OUT-01 | TBD | Pending |
-| OUT-02 | TBD | Pending |
-| OUT-03 | TBD | Pending |
-| OUT-04 | TBD | Pending |
-| OUT-05 | TBD | Pending |
-| OUT-06 | TBD | Pending |
-| OUT-07 | TBD | Pending |
-| STR-01 | TBD | Pending |
-| STR-02 | TBD | Pending |
-| STR-03 | TBD | Pending |
-| STR-04 | TBD | Pending |
+| SCH-01 | Phase 1 | Pending |
+| SCH-02 | Phase 1 | Pending |
+| SCH-03 | Phase 1 | Pending |
+| SCH-04 | Phase 1 | Pending |
+| SCH-05 | Phase 1 | Pending |
+| SCH-06 | Phase 1 | Pending |
+| DSP-01 | Phase 2 | Pending |
+| DSP-02 | Phase 2 | Pending |
+| DSP-03 | Phase 2 | Pending |
+| DSP-04 | Phase 2 | Pending |
+| DSP-05 | Phase 2 | Pending |
+| DSP-06 | Phase 2 | Pending |
+| DSP-07 | Phase 2 | Pending |
+| DSP-08 | Phase 2 | Pending |
+| DSP-09 | Phase 2 | Pending |
+| DSP-10 | Phase 2 | Pending |
+| DET-01 | Phase 3 | Pending |
+| DET-02 | Phase 3 | Pending |
+| DET-03 | Phase 3 | Pending |
+| DET-04 | Phase 3 | Pending |
+| DET-05 | Phase 3 | Pending |
+| DET-06 | Phase 3 | Pending |
+| DET-07 | Phase 3 | Pending |
+| PRV-01 | Phase 4 | Pending |
+| PRV-02 | Phase 4 | Pending |
+| PRV-03 | Phase 4 | Pending |
+| PRV-04 | Phase 4 | Pending |
+| PRV-05 | Phase 4 | Pending |
+| PRV-06 | Phase 4 | Pending |
+| PRV-07 | Phase 4 | Pending |
+| PRV-08 | Phase 4 | Pending |
+| PRV-09 | Phase 4 | Pending |
+| DDP-01 | Phase 5 | Pending |
+| DDP-02 | Phase 5 | Pending |
+| DDP-03 | Phase 5 | Pending |
+| DDP-04 | Phase 5 | Pending |
+| DDP-05 | Phase 5 | Pending |
+| DDP-06 | Phase 5 | Pending |
+| DDP-07 | Phase 5 | Pending |
+| DDP-08 | Phase 5 | Pending |
+| OUT-01 | Phase 6 | Pending |
+| OUT-02 | Phase 6 | Pending |
+| OUT-03 | Phase 6 | Pending |
+| OUT-04 | Phase 6 | Pending |
+| OUT-05 | Phase 6 | Pending |
+| OUT-06 | Phase 6 | Pending |
+| OUT-07 | Phase 6 | Pending |
+| STR-01 | Phase 4 | Pending |
+| STR-02 | Phase 3 | Pending |
+| STR-03 | Phase 4 | Pending |
+| STR-04 | Phase 3 | Pending |
+| CON-01 | Phase 1 | Pending |
+| CON-02 | Phase 1 | Pending |
+| CON-03 | Phase 1 | Pending |
+| CON-04 | Phase 1 | Pending |
+| CON-05 | Phase 1 | Pending |
+| CON-06 | Phase 1 | Pending |
+| CON-07 | Phase 1 | Pending |
+| CON-08 | Phase 3 | Pending |
+| CON-09 | Phase 5 | Pending |
+| CON-10 | Phase 5 | Pending |
+| CON-11 | Phase 5 | Pending |
+| CON-12 | Phase 5 | Pending |
+| CON-13 | Phase 5 | Pending |
+| CON-14 | Phase 5 | Pending |
+| CON-15 | Phase 5 | Pending |
+| CON-16 | Phase 6 | Pending |
+| CON-17 | Phase 6 | Pending |
+| CON-18 | Phase 6 | Pending |
+| CON-19 | Phase 6 | Pending |
+| CON-20 | Phase 5 | Pending |
+| CON-21 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 51 total
-- Mapped to phases: 0 (filled by roadmapper)
-- Unmapped: 51 ⚠️ (expected pre-roadmap)
+- v1 requirements: 72 total (51 ATS feature + 21 concerns cleanup)
+- Mapped to phases: 72 (100%)
+- Unmapped: 0
+
+**Per-phase counts:**
+- Phase 1 (Schema + paths + migration + foundational cleanup): 13 (SCH-01..06, CON-01..07)
+- Phase 2 (Provider Protocol + Greenhouse + dispatcher + observability): 10 (DSP-01..10)
+- Phase 3 (Detection + /scout-detect + lazy inline + dead-doc-ref cleanup): 10 (DET-01..07, STR-02, STR-04, CON-08)
+- Phase 4 (Remaining providers + JSON-LD + filtering): 11 (PRV-01..09, STR-01, STR-03)
+- Phase 5 (Cross-source dedup + tier bump + enrich + scoring/tracker cleanup): 16 (DDP-01..08, CON-09..15, CON-20)
+- Phase 6 (Run summary + delete legacy + milestone close + version/PII/post-run cleanup): 12 (OUT-01..07, CON-16..19, CON-21)
 
 ---
 *Requirements defined: 2026-04-27*
-*Last updated: 2026-04-27 after initial definition*
+*Last updated: 2026-04-27 — added 21 CON-* concerns-cleanup reqs surgically distributed into Phases 1/3/5/6*
