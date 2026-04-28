@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-28 (post-Plan 01-01 execution)
+**Last updated:** 2026-04-28 (post-Plan 01-02 execution)
 
 ## Project Reference
 
@@ -20,15 +20,15 @@
 ## Current Position
 
 **Phase:** 1 — Schema verification + paths + migration smoke-test
-**Plan:** 01-01 complete (schema v=4 + STATUS_VALUES + validators + venv install hints); 01-02, 01-03, 01-04 remaining
-**Status:** Phase 1 in progress — Plan 01-01 of 4 complete
+**Plan:** 01-01 + 01-02 complete (Wave 1 done — all `scripts/`-tier work landed); 01-03, 01-04 remaining
+**Status:** Phase 1 in progress — 2/4 plans complete
 
-**Progress:** 0/6 phases complete (1/4 plans in Phase 1 complete)
+**Progress:** 0/6 phases complete (2/4 plans in Phase 1 complete)
 
 ```
-[~] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 1/4 plans complete
+[~] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 2/4 plans complete
     [x] Plan 01-01 — schema.py v=4 + STATUS_VALUES + validate_runs_log/ensure_today_subdirs + venv install hints (SCH-01..04, CON-02, CON-04 sites 1-2 of 4)
-    [ ] Plan 01-02 — file-contract.md paths + sister CON-04 sites
+    [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05, CON-07)
     [ ] Plan 01-03 — docs/skills schema sync
     [ ] Plan 01-04 — migration smoke-test + grep gates
 [ ] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs)
@@ -118,23 +118,34 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — Plan 01-01 executed (schema.py v=4, STATUS_VALUES + helper, validate_runs_log/ensure_today_subdirs, tracker_utils status validation + 16-col rows, venv install hints in validate_data.py + tracker_utils.py).
+**Last session ended:** 2026-04-28 — Plan 01-02 executed (state.py `_harden_perms` 0o600/0o700 + LEGACY_DATA_DIRS deletion; consolidate_targets.py dead-`already_applied`-block deletion; mine_connections.py header-detection WARNING + post-skip company-AND-name column guard; venv install hints in consolidate_targets.py + mine_connections.py — closing CON-04 partition).
 
-**Plan 01-01 deliverables:**
+**Plan 01-01 deliverables (prior session):**
+
 - `scripts/schema.py` v=4 (commit 856d170)
 - `scripts/validate_data.py` validators + venv hint (commits 77fb7b7, 9e6546f)
 - `scripts/tracker_utils.py` status validation + 16-col rows + venv hint (commit 3b86340)
 - SUMMARY at `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-01-schema-SUMMARY.md`
 
-**Architectural item flagged for Phase 5:** Pre-existing `"Stale — Verify"` status string in `tracker_utils.py:203` is now warn-coerced to `"Active"` by the new `STATUS_VALUES` validator. Non-data-destructive (row still written, stderr WARNING) but loses the user-facing stale flag. Three resolution paths possible — defer to Phase 5 tracker cleanup. See SUMMARY Deviation 2.
+**Plan 01-02 deliverables (this session):**
 
-**Next action:** Execute Plan 01-02 (file-contract.md paths + sister CON-04 sites in `consolidate_targets.py` and `mine_connections.py`).
+- `scripts/consolidate_targets.py` install hint + dead summary block deletion (commits 0ab2447, 8346145)
+- `scripts/state.py` `_harden_perms` + LEGACY_DATA_DIRS deletion (commit 8a74ba2)
+- `scripts/mine_connections.py` install hint + header-detection guard + post-skip column validation (commits 0ab2447, 2b959c9)
+- SUMMARY at `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-cleanup-SUMMARY.md`
+
+**CON-04 partition closed.** All four `--break-system-packages` sites are now venv/--user copy across both Wave-1 plans (validate_data.py + tracker_utils.py from Plan 01-01; consolidate_targets.py + mine_connections.py from Plan 01-02). Plan 01-04's grep gate has clean ground.
+
+**Architectural item still flagged for Phase 5:** Pre-existing `"Stale — Verify"` status string in `tracker_utils.py:203` is warn-coerced to `"Active"` by the STATUS_VALUES validator (Plan 01-01). Non-data-destructive but loses the user-facing stale flag. Phase 5 tracker cleanup owns resolution.
+
+**Next action:** Execute Plan 01-03 (docs/skills schema sync — file-contract.md + skills/job-scout/references and SKILL.md updates to v=4 schema and the post-LEGACY-chain `/scout-setup` flow).
 
 **On resume, read in order:**
+
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-01-schema-SUMMARY.md` for completed plan context
-3. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-cleanup-PLAN.md` for next plan
+2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-02-cleanup-SUMMARY.md` for the most recent plan context
+3. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-03-*-PLAN.md` for the next plan (filename TBD when planner runs)
 4. `.planning/ROADMAP.md` for the phase definition + success criteria
 
 ---
-*Plan 01-01 executed: 2026-04-28 by sequential executor agent. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
+*Plan 01-02 executed: 2026-04-28 by sequential executor agent. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
