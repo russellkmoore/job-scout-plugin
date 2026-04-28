@@ -73,7 +73,13 @@ def normalize_application_status(value):
       - None -> ("", False)
       - exact case match -> (canonical, False)
       - case-insensitive match -> (canonical, True)
-      - unknown -> ("Active", True)
+      - unknown -> (s, True)  # warn-and-pass-through: never rewrite user data
+
+    Locked decision: unknown values are preserved verbatim. The caller
+    (tracker_utils.append_rows) emits a stderr warning so the user can
+    decide whether to fix the typo or extend STATUS_VALUES — but we
+    never silently destroy user annotations like "Stale — Verify"
+    or "Pending follow-up" by rewriting them to a canonical default.
     """
     if value is None:
         return "", False
@@ -81,7 +87,7 @@ def normalize_application_status(value):
     for canonical in STATUS_VALUES:
         if s.lower() == canonical.lower():
             return canonical, s != canonical
-    return "Active", True
+    return s, True
 
 
 # =====================================================================

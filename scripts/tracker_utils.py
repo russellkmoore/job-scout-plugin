@@ -206,19 +206,23 @@ def append_rows(filepath, new_rows_json_path):
             # Still add it, but flagged — user can decide
 
         # CON-02: validate application_status against STATUS_VALUES.
-        # Warn-and-coerce per locked decision — never rejects a row.
+        # Warn-and-pass-through per locked decision — never rejects a row,
+        # and never rewrites user data. Unknown values are preserved verbatim
+        # in the row; a stderr warning fires so the user can fix the typo or
+        # extend STATUS_VALUES if intentional.
         #
-        # Default for absent `status` is "New" (preserves v=3 behavior — the original
-        # row_dict.get("status", "New") fallback). "New" is now a canonical member of
-        # STATUS_VALUES, so the normalize_application_status() call below treats it as
-        # exact-case-match (no coercion, no warning). Only explicitly-set unrecognized
-        # values trigger the warn-and-pass-through path.
+        # Default for absent `status` is "New" (preserves v=3 behavior). "New" is
+        # a canonical member, so normalize_application_status returns (canonical, False)
+        # and no warning fires. Case-insensitive matches (e.g., "DEAD" -> "Dead") are
+        # silently canonicalized AND warned. Truly unknown strings ("Stale — Verify")
+        # are preserved as-is AND warned.
         raw_status = row_dict.get("status", "New")
         canonical_status, status_coerced = normalize_application_status(raw_status)
-        if status_coerced and raw_status:  # silent on empty -> "" coercion
+        if status_coerced and raw_status:
             print(
-                f"WARNING: row {added}: application_status {raw_status!r} not in STATUS_VALUES; "
-                f"coerced to {canonical_status!r}",
+                f"WARNING: row {added}: application_status {raw_status!r} not an exact "
+                f"match in STATUS_VALUES; preserved as {canonical_status!r} "
+                f"(add to STATUS_VALUES if intentional)",
                 file=sys.stderr,
             )
         row_dict["status"] = canonical_status
