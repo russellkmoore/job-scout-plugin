@@ -28,7 +28,12 @@ try:
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 except ImportError:
-    print("ERROR: openpyxl not installed. Run: pip install openpyxl --break-system-packages", file=sys.stderr)
+    print(
+        "ERROR: openpyxl not installed. Install with: "
+        "python3 -m venv ~/.job-scout-venv && source ~/.job-scout-venv/bin/activate && pip install openpyxl"
+        "  (or: pip install --user openpyxl)",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 # Allow running this script directly from the plugin root.
@@ -40,7 +45,9 @@ if SCRIPTS_DIR not in sys.path:
 from schema import (
     TRACKER_COLUMNS as HEADERS,
     TRACKER_COL_WIDTHS as COL_WIDTHS,
+    TRACKER_JSON_KEYS,
     STALE_LINKEDIN_JOB_ID_THRESHOLD as STALE_JOB_ID_THRESHOLD,
+    normalize_application_status,
 )
 
 
@@ -198,6 +205,24 @@ def append_rows(filepath, new_rows_json_path):
             skipped_stale += 1
             # Still add it, but flagged — user can decide
 
+        # CON-02: validate application_status against STATUS_VALUES.
+        # Warn-and-coerce per locked decision — never rejects a row.
+        #
+        # Default for absent `status` is "New" (preserves v=3 behavior — the original
+        # row_dict.get("status", "New") fallback). "New" is now a canonical member of
+        # STATUS_VALUES, so the normalize_application_status() call below treats it as
+        # exact-case-match (no coercion, no warning). Only explicitly-set unrecognized
+        # values trigger the warn-and-pass-through path.
+        raw_status = row_dict.get("status", "New")
+        canonical_status, status_coerced = normalize_application_status(raw_status)
+        if status_coerced and raw_status:  # silent on empty -> "" coercion
+            print(
+                f"WARNING: row {added}: application_status {raw_status!r} not in STATUS_VALUES; "
+                f"coerced to {canonical_status!r}",
+                file=sys.stderr,
+            )
+        row_dict["status"] = canonical_status
+
         row_list = [
             row_dict.get("date_found", datetime.now().strftime("%Y-%m-%d")),
             row_dict.get("job_title", ""),
@@ -213,6 +238,8 @@ def append_rows(filepath, new_rows_json_path):
             row_dict.get("resume_file", ""),
             row_dict.get("status", "New"),
             row_dict.get("notes", ""),
+            row_dict.get("source", ""),         # v0.4 SCH-04: ats:greenhouse|...|linkedin
+            row_dict.get("ats_provider", ""),   # v0.4 SCH-04: ats:greenhouse|... or empty
         ]
 
         existing_rows.append(row_list)
