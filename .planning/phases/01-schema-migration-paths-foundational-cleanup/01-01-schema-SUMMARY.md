@@ -13,7 +13,7 @@ key-files:
 decisions:
   - STATUS_VALUES has 9 members ("", "New", "Active", "Applied", "Interviewing", "Offer", "Rejected", "Dead", "Closed"); empty + "New" + 7 canonical lifecycle states.
   - "New" is canonical (not coerced) — preserves the v=3 default fallback for absent `status` so existing tracker behavior is unchanged.
-  - normalize_application_status returns ("Active", True) on unknown values per CON-02 warn-and-pass-through; never rejects a row.
+  - normalize_application_status returns (s, True) on unknown values per CON-02 warn-and-pass-through; never rejects a row, never rewrites user data. (Original implementation incorrectly returned ("Active", True) — fixed in commit e0863b2 to preserve user annotations like "Stale — Verify".)
   - validate_master_targets is unchanged — its existing column-by-column additive logic auto-migrates v=3 master_targets.csv to v=4 on first validate.
   - _write_tracker / load_tracker are unchanged — len(HEADERS) is now 16 from schema, and load_tracker's existing None-padding widens v=3 14-col xlsx files transparently.
 metrics:

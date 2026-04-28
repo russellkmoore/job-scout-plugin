@@ -48,7 +48,14 @@ Before doing anything else:
    - `<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md` (final report)
    - `<data_dir>/daily/<TODAY>/new_rows.json` (input to tracker append)
    - `<data_dir>/daily/<TODAY>/run_log.json` (per-pass stats)
+   - `<data_dir>/daily/<TODAY>/ats_raw/` (per-provider raw API payloads, populated by Phase 2+ ATS code)
    - `<TODAY>` is the local-date ISO string (`YYYY-MM-DD`).
+
+   Then guarantee the per-day directories exist before any code writes into them:
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_data.py ensure-today "<data_dir>" "<TODAY>"
+   ```
+   This creates `daily/<TODAY>/` and `daily/<TODAY>/ats_raw/` if missing — idempotent, safe to re-run. Required because `validate_data.py`'s main sweep runs before `<TODAY>` is resolved (see `validate_data.py:136` for rationale).
 
 5. **Compute the per-pass listing budget** from `config.search.max_listings_per_run` (default 50):
    - Pass 1 (company-first): `round(0.60 * max_listings_per_run)`
