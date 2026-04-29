@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-28 (post-Plan 01-04 execution; Phase 1 complete)
+**Last updated:** 2026-04-29 (post-Plan 02-01 execution; Phase 2 in progress, 1/3 plans complete)
 
 ## Project Reference
 
@@ -19,11 +19,11 @@
 
 ## Current Position
 
-**Phase:** 1 — Schema migration + paths + foundational cleanup — **COMPLETE**
-**Plan:** All 4 plans complete (01-01, 01-02, 01-03, 01-04)
-**Status:** Phase 1 complete; ready for Phase 2 planning
+**Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **IN PROGRESS**
+**Plan:** 1 of 3 complete (02-01 substrate done; 02-02 + 02-03 remaining)
+**Status:** Plan 02-01 complete (DSP-01..08 landed); next: Plan 02-02 (Greenhouse provider — DSP-09)
 
-**Progress:** 1/6 phases complete
+**Progress:** 1/6 phases complete (Phase 2: 1/3 plans complete)
 
 ```
 [x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
@@ -31,7 +31,10 @@
     [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05 scripts/-side, CON-07)
     [x] Plan 01-03 — docs/skills schema sync (file-contract.md path entries SCH-06; companies_per_day SSOT to templates/config.json CON-06; scout-setup legacy-dir migration prompt CON-05 user-facing)
     [x] Plan 01-04 — migration round-trip pytest + phase-wide grep gate (SCH-05; verifies 19 grep invariants + pytest exit 0)
-[ ] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs)
+[~] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs) — 1/3 plans complete
+    [x] Plan 02-01 — scripts/ats package + Provider Protocol + Listing + dispatcher (shared httpx.Client + per-provider semaphores + 3-state outcomes + kill-switch) + runs_log.py (DSP-01..08)
+    [ ] Plan 02-02 — Greenhouse provider conforming to Provider Protocol + airbnb 3-job sanitized fixture (DSP-09)
+    [ ] Plan 02-03 — [ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 + runs.jsonl append + ats_raw/ persistence; stash-replay protocol (DSP-10)
 [ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
 [ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
 [ ] Phase 5 — Cross-source dedup + tier bump + enrich + scoring/tracker cleanup (16 reqs)
@@ -118,7 +121,21 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-28 — Plan 01-04 executed (migration round-trip pytest + phase-wide grep gate). Phase 1 closes here with all 13 requirements (SCH-01..06, CON-01..07) complete and grep-verifiable.
+**Last session ended:** 2026-04-29 — Plan 02-01 executed (scripts/ats package skeleton + Provider Protocol + Listing + dispatcher + runs_log.py). DSP-01..08 landed; PROVIDERS registry empty pending Plan 02-02.
+
+**Plan 02-01 deliverables (this session):**
+
+- `scripts/ats/__init__.py` — package marker + `PROVIDERS: Dict[str, "Provider"] = {}` empty registry + 1/2/3-level sibling-bootstrap docstring (commit f2703c4)
+- `scripts/ats/providers/__init__.py` — providers package marker (commit f2703c4)
+- `scripts/ats/providers/base.py` — `class Provider(Protocol)` (5-method shape, `@runtime_checkable`) + frozen `DetectionResult`/`FetchResult` dataclasses + `DetectionStatus` enum (commit f2703c4)
+- `scripts/ats/normalize.py` — frozen `Listing` dataclass with `__post_init__` raising on empty required fields + `REQUIRED_FIELDS` tuple + `compute_missing_fields` helper (commit f2703c4)
+- `scripts/ats/runs_log.py` — `RunOutcome` enum (single source of truth) + `append_run()` (open 'a' + flush, never read+rewrite) + `compute_field_completion()` + CLI subcommand (commit 123c3d5)
+- `scripts/ats/dispatcher.py` — `fetch_all` with shared httpx.Client + ThreadPoolExecutor(max_workers=20) + per-provider `_SEMAPHORES` + 3-state `FetchOutcome` + 2-tier exception wrapper + `ats.concurrency_disabled` kill-switch + `aggregate_outcomes` helper (commit 54f8a61)
+- httpx 0.28.1 installed into `~/.job-scout-venv` (Task 0 prerequisite — no commit)
+- SC-5 stress test passed: 30 stub targets / cap=10 → peak observed = 10 (Task 4 — no commit)
+- SUMMARY at `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-01-dispatcher-SUMMARY.md`
+
+**Auto-fixed deviations during execution:** 2 × Rule 1 bugs in dispatcher.py both rolled into commit 54f8a61 — (a) httpx 0.28+ Timeout API requires write/pool params (added write=15, pool=15); (b) `_init_semaphores` rebound the global rather than mutating in place, leaving external imports stale (changed to `clear()` + `update()`). Both noted in SUMMARY's Deviations section.
 
 **Plan 01-01 deliverables (prior session):**
 
@@ -127,7 +144,7 @@ None at roadmap stage.
 - `scripts/tracker_utils.py` status validation + 16-col rows + venv hint (commit 3b86340)
 - SUMMARY at `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-01-schema-SUMMARY.md`
 
-**Plan 01-02 deliverables (this session):**
+**Plan 01-02 deliverables (prior session):**
 
 - `scripts/consolidate_targets.py` install hint + dead summary block deletion (commits 0ab2447, 8346145)
 - `scripts/state.py` `_harden_perms` + LEGACY_DATA_DIRS deletion (commit 8a74ba2)
@@ -138,7 +155,7 @@ None at roadmap stage.
 
 **Architectural item still flagged for Phase 5:** Pre-existing `"Stale — Verify"` status string in `tracker_utils.py:203` is warn-coerced to `"Active"` by the STATUS_VALUES validator (Plan 01-01). Non-data-destructive but loses the user-facing stale flag. Phase 5 tracker cleanup owns resolution.
 
-**Plan 01-03 deliverables (this session):**
+**Plan 01-03 deliverables (prior session):**
 
 - `skills/job-scout/references/file-contract.md` — added `runs.jsonl` row to Persistent files table + `daily/<DATE>/ats_raw/` row to Per-run output table (commit 9c13181)
 - `skills/scout-run/SKILL.md` — line 73 inline `(default 8)` removed, replaced with prose pointing at `templates/config.json` (commit 2e84994; user's pre-existing uncommitted edits to lines 5 + 80-93 preserved untouched)
@@ -148,7 +165,7 @@ None at roadmap stage.
 
 **CON-05 user-facing closeout.** Plan 01-02 deleted `LEGACY_DATA_DIRS` from `scripts/state.py` (scripts side); Plan 01-03 added the user-facing `/scout-setup` Step 1 prompt that detects + reuses legacy data dirs by calling `state.py write` inline. Together: existing v0.3 users get a graceful upgrade path on first re-run of `/scout-setup`, and a fresh v0.4 user with no legacy dirs falls through to the existing fresh-setup flow.
 
-**Plan 01-04 deliverables (this session):**
+**Plan 01-04 deliverables (prior session):**
 
 - `tests/__init__.py` — empty package marker (commit a4e1abf)
 - `tests/fixtures/master_targets_v3.csv` — checked-in v=3 fixture, 4 lines, 12 columns, 3 rows incl. user-added `my_notes` (commit a4e1abf)
@@ -160,14 +177,15 @@ None at roadmap stage.
 
 **Phase 1 closeout.** All 4 plans complete; all 13 Phase 1 requirements (SCH-01..06, CON-01..07) verified by the phase-wide grep gate. The gate is a single bash pipeline that re-runs in <5 seconds — phase-completion verifier can use it directly. Test infrastructure (tests/ + tests/fixtures/ layout, sibling-bootstrap pattern, exit-code gating) established for Phase 2 + 4 to reuse.
 
-**Next action:** Run Phase 1 verifier (if configured), then `/gsd-discuss-phase 2` → `/gsd-plan-phase 2` → `/gsd-execute-phase 2`. Phase 2 is "Provider Protocol + Greenhouse end-to-end + dispatcher + observability" — DSP-01..DSP-10 (10 reqs).
+**Next action:** Continue Phase 2 — execute Plan 02-02 (Greenhouse provider conforming to Provider Protocol + sanitized airbnb 3-job fixture + smoke roundtrip via fixture; DSP-09). Plan 02-02 imports `Provider`, `FetchResult`, `DetectionResult`, `DetectionStatus` from `scripts/ats/providers/base.py` and `Listing`, `REQUIRED_FIELDS` from `scripts/ats/normalize.py` — contracts already published by 02-01. Plan 02-02 registers `PROVIDERS["greenhouse"] = GreenhouseProvider` at module bottom. Sibling-bootstrap is 3-level for `scripts/ats/providers/greenhouse.py` (file → providers → ats → scripts).
 
 **On resume, read in order:**
 
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/phases/01-schema-migration-paths-foundational-cleanup/01-04-migration-test-SUMMARY.md` for the most recent plan context
-3. `.planning/ROADMAP.md` Phase 2 section for the next phase definition + success criteria
-4. `.planning/research/SUMMARY.md` for ATS provider integration research findings (HIGH confidence)
+2. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-01-dispatcher-SUMMARY.md` for the most recent plan context (substrate hand-off section is the key)
+3. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-02-greenhouse-PLAN.md` for the next plan (DSP-09)
+4. `.planning/ROADMAP.md` Phase 2 section for phase-level success criteria
+5. `.planning/research/SUMMARY.md` for ATS provider integration research findings (HIGH confidence)
 
 ---
-*Plan 01-04 executed: 2026-04-28 by sequential executor agent. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
+*Plan 02-01 executed: 2026-04-29 by sequential executor agent. Plan 01-04 executed: 2026-04-28. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
