@@ -69,17 +69,57 @@ THIN_BORDER = Border(
 )
 
 
-def extract_job_id(url):
-    """Extract numeric LinkedIn job ID from a URL."""
+def extract_linkedin_job_id(url):
+    """Extract numeric LinkedIn job ID — anchored to linkedin.com URLs only.
+    Returns int or None. Returns None for non-LinkedIn URLs (career-page,
+    ATS board URLs, etc.) so stale-flag and dedup skip non-LinkedIn rows.
+
+    CON-13: replaces the old generic extract_job_id which matched any 10+ digit
+    run in any URL (false positives on ATS job IDs like greenhouse.io/jobs/7890).
+    """
     if not url:
         return None
-    match = re.search(r'(\d{10,})', str(url))
+    s = str(url)
+    # Handle /jobs/search/?currentJobId=<id> query-string form
+    match = re.search(r'linkedin\.com/jobs/search/[^?]*\?(?:[^&]*&)*currentJobId=(\d{10,})', s)
+    if match:
+        return int(match.group(1))
+    # Handle /jobs/view/<id> and /jobs/search/<non-digits><id> path forms
+    match = re.search(r'linkedin\.com/jobs/(?:view|search)/\D*?(\d{10,})', s)
     return int(match.group(1)) if match else None
+
+
+def extract_dedup_key(url):
+    """Return a stable dedup key for any URL.
+
+    For LinkedIn URLs, returns the numeric job ID as a string.
+    For other URLs, returns the URL itself (lowercased, stripped).
+    Used by rebuild() to deduplicate non-LinkedIn rows by full URL.
+
+    CON-13: enables cross-source dedup — ATS URLs deduped by URL string,
+    LinkedIn by job ID.
+    """
+    if not url:
+        return None
+    s = str(url).strip()
+    if not s:
+        return None
+    linkedin_id = extract_linkedin_job_id(s)
+    if linkedin_id is not None:
+        return str(linkedin_id)
+    return s.lower()
+
+
+def extract_job_id(url):
+    """DEPRECATED (CON-13): use extract_linkedin_job_id (LinkedIn-anchored) or
+    extract_dedup_key (URL-as-string fallback). Kept for back-compat; removed in Phase 6.
+    """
+    return extract_linkedin_job_id(url)
 
 
 def is_stale_by_id(url):
     """Check if a listing is likely stale based on LinkedIn job ID."""
-    job_id = extract_job_id(url)
+    job_id = extract_linkedin_job_id(url)
     if job_id and job_id < STALE_JOB_ID_THRESHOLD:
         return True, job_id
     return False, job_id
@@ -125,13 +165,23 @@ def create_empty_tracker(filepath):
 
 
 def load_tracker(filepath):
-    """Load existing tracker. Returns (workbook, list of row dicts, set of existing job IDs)."""
+    """Load existing tracker. Returns (workbook, list of rows, set of existing job IDs, user_extra_headers).
+
+    user_extra_headers: list of column header names from row 1 beyond len(HEADERS).
+    Empty list if no user-added columns exist.
+
+    CON-20: 4-tuple return so _write_tracker can preserve user-added xlsx columns.
+    """
     if not os.path.exists(filepath):
         wb = create_empty_tracker(filepath)
-        return wb, [], set()
+        return wb, [], set(), []
 
     wb = openpyxl.load_workbook(filepath)
     ws = wb.active
+
+    # CON-20: discover user-added column headers from row 1 (beyond canonical HEADERS)
+    ws_headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+    user_extra_headers = [h for h in ws_headers[len(HEADERS):] if h is not None]
 
     rows = []
     job_ids = set()
@@ -140,19 +190,20 @@ def load_tracker(filepath):
         row_list = list(row)
         if len(row_list) < len(HEADERS):
             row_list.extend([None] * (len(HEADERS) - len(row_list)))
+        # CON-20: keep extra columns in row_list intact — _write_tracker will preserve them
         rows.append(row_list)
 
         url = row_list[9]  # Job URL column
-        job_id = extract_job_id(url)
+        job_id = extract_linkedin_job_id(url)  # CON-13: LinkedIn-anchored only
         if job_id:
             job_ids.add(job_id)
 
-    return wb, rows, job_ids
+    return wb, rows, job_ids, user_extra_headers
 
 
 def get_dedup_set(filepath):
     """Return JSON list of existing job IDs for the SKILL.md to use for pre-search deduplication."""
-    _, _, job_ids = load_tracker(filepath)
+    _, _, job_ids, _ = load_tracker(filepath)
     return sorted(list(job_ids))
 
 
@@ -182,15 +233,15 @@ def append_rows(filepath, new_rows_json_path):
     with open(new_rows_json_path, 'r') as f:
         new_rows = json.load(f)
 
-    _, existing_rows, existing_ids = load_tracker(filepath)
+    _, existing_rows, existing_ids, user_extra_headers = load_tracker(filepath)
 
     added = 0
     skipped_dupe = 0
-    skipped_stale = 0
+    flagged_stale_count = 0  # CON-14: local var (dict key stays "flagged_stale" per Pitfall 6)
 
     for row_dict in new_rows:
         url = row_dict.get("job_url", "")
-        job_id = extract_job_id(url)
+        job_id = extract_linkedin_job_id(url)  # CON-13: LinkedIn-anchored only
 
         # Dedup check
         if job_id and job_id in existing_ids:
@@ -202,8 +253,7 @@ def append_rows(filepath, new_rows_json_path):
         if stale:
             row_dict["status"] = "Stale — Verify"
             row_dict["notes"] = f"LIKELY STALE — LinkedIn job ID {job_id} suggests old listing. {row_dict.get('notes', '')}".strip()
-            skipped_stale += 1
-            # Still add it, but flagged — user can decide
+            flagged_stale_count += 1
 
         # CON-02: validate application_status against STATUS_VALUES.
         # Warn-and-pass-through per locked decision — never rejects a row,
@@ -252,12 +302,12 @@ def append_rows(filepath, new_rows_json_path):
         added += 1
 
     # Rebuild the entire file with consistent formatting
-    _write_tracker(filepath, existing_rows)
+    _write_tracker(filepath, existing_rows, user_extra_headers=user_extra_headers)
 
     result = {
         "added": added,
         "skipped_duplicate": skipped_dupe,
-        "flagged_stale": skipped_stale,
+        "flagged_stale": flagged_stale_count,  # CON-14: dict KEY stays "flagged_stale" (Pitfall 6)
         "total_rows": len(existing_rows)
     }
     return result
@@ -265,25 +315,25 @@ def append_rows(filepath, new_rows_json_path):
 
 def rebuild(filepath):
     """Rebuild an existing tracker: remove dupes, fix colors, fix formatting."""
-    _, rows, _ = load_tracker(filepath)
+    _, rows, _, user_extra_headers = load_tracker(filepath)  # CON-20: unpack 4-tuple
 
-    # Deduplicate
-    seen_ids = set()
+    # Deduplicate — use extract_dedup_key (CON-13) so ATS/career-page rows dedup by URL string
+    seen_keys = set()
     deduped = []
     dupes = 0
 
     for row in rows:
         url = row[9] if len(row) > 9 else None
-        job_id = extract_job_id(url)
+        key = extract_dedup_key(url)  # CON-13: LinkedIn → job ID str; others → URL str
 
-        if job_id and job_id in seen_ids:
+        if key and key in seen_keys:
             dupes += 1
             continue
-        if job_id:
-            seen_ids.add(job_id)
+        if key:
+            seen_keys.add(key)
         deduped.append(row)
 
-    _write_tracker(filepath, deduped)
+    _write_tracker(filepath, deduped, user_extra_headers=user_extra_headers)
 
     return {
         "original_rows": len(rows),
@@ -292,13 +342,20 @@ def rebuild(filepath):
     }
 
 
-def _write_tracker(filepath, rows):
-    """Write tracker with guaranteed consistent formatting."""
+def _write_tracker(filepath, rows, user_extra_headers=None):
+    """Write tracker with guaranteed consistent formatting.
+
+    user_extra_headers: list of user-added column header names to re-emit in row 1
+    at columns past len(HEADERS). For each data row, values at those indices are
+    written through as plain cells (no scout formatting). CON-20 fix: replaces the
+    old `break` that silently dropped user-added xlsx columns on every rewrite.
+    """
+    user_extra_headers = user_extra_headers or []
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Job Tracker"
 
-    # Headers
+    # Canonical headers (cols 1..len(HEADERS))
     for col, header in enumerate(HEADERS, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.fill = HEADER_FILL
@@ -306,7 +363,15 @@ def _write_tracker(filepath, rows):
         cell.alignment = Alignment(horizontal='center', wrap_text=True)
         cell.border = THIN_BORDER
 
-    # Column widths
+    # CON-20: re-emit user-added column headers in row 1 (cols past len(HEADERS))
+    for i, extra_header in enumerate(user_extra_headers, start=len(HEADERS) + 1):
+        cell = ws.cell(row=1, column=i, value=extra_header)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+        cell.border = THIN_BORDER
+
+    # Column widths (canonical columns only — user columns get default width)
     for i, w in enumerate(COL_WIDTHS, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -321,12 +386,14 @@ def _write_tracker(filepath, rows):
         row_fill = get_row_fill(tier, status, notes)
 
         for col, val in enumerate(row, 1):
-            if col > len(HEADERS):
-                break
             cell = ws.cell(row=r_idx, column=col, value=val)
             cell.fill = row_fill
             cell.border = THIN_BORDER
             cell.alignment = Alignment(wrap_text=True, vertical='top')
+
+            if col > len(HEADERS):
+                # CON-20: user-added column — plain write-through, no scout formatting
+                continue
 
             if col == 6:  # Score — center
                 cell.alignment = Alignment(horizontal='center', vertical='top')
