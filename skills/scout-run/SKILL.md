@@ -1,11 +1,11 @@
 ---
 name: scout-run
-description: Run a daily job search — broad sourcing across LinkedIn, career pages, and other boards, with honest scoring and actionable per-match output. Triggers when the user types `/scout-run` or asks to "run the job scout", "find me jobs", "do a daily job search", "check for new job matches".
+description: Run a daily job search — ATS-first sourcing (Greenhouse, Lever, Ashby, SmartRecruiters, Workday) plus JSON-LD fallback, LinkedIn keyword search, and specialized boards (Wellfound, Built In Seattle, YC Work at a Startup, HN Who is Hiring), with honest scoring and actionable per-match output. Triggers when the user types `/scout-run` or asks to "run the job scout", "find me jobs", "do a daily job search", "check for new job matches".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite, mcp__Claude_in_Chrome__*
-version: 0.3.3
+version: 0.4.0
 ---
 
-Execute a Job Scout search run. The scout uses Claude in Chrome to perform a wide, deliberate search across company career pages, several job boards, and LinkedIn — scores matches honestly against the candidate's actual profile — and produces a daily report plus tracker update with **actionable** A-tier output (warm path, ATS keyword diff, outreach draft).
+Execute a Job Scout search run. The scout uses ATS-first sourcing (Greenhouse, Lever, Ashby, SmartRecruiters, Workday) plus JSON-LD fallback, LinkedIn keyword search, and specialized boards (Wellfound, Built In Seattle, YC Work at a Startup, HN Who is Hiring) — scores matches honestly against the candidate's actual profile — and produces a daily report plus tracker update with **actionable** A-tier output (warm path, ATS keyword diff, outreach draft).
 
 **This skill takes no arguments.** All configuration lives in `{data_dir}/config.json`. If you find yourself wanting to override scoring weights or query lists in a scheduled task, edit `config.json` instead.
 
@@ -82,11 +82,8 @@ This is the highest-signal pass. Pick `companies_per_day` companies (see `compan
 - Sort: `linkedin_connection_count` desc, then `last_checked` ascending (oldest first), then `application_status` (skip those with `Dead`).
 - Take the top `companies_per_day` rows.
 
-For each selected company, hit sources in this order and stop early if you've found qualifying roles:
+For each selected company, ATS sourcing runs in **Step 2.5** (multi-provider, ONE process per run). The remaining company-side activity in this step is the LinkedIn keyword search:
 
-1. **Career page** (`career_page_url`) — read directly. Career pages give full JDs without lazy-loading and often list roles before LinkedIn does.
-2. **ATS board** (`ats_board_url`, if populated) — Greenhouse/Lever/Workday/Ashby. ATS pages have richer filter and structured data.
-   - If `ats_provider` is empty but `career_page_url` looks like `boards.greenhouse.io/X`, `jobs.lever.co/X`, `myworkdayjobs.com`, or `<company>.ashbyhq.com`, populate `ats_provider` and `ats_board_url` in `master_targets.csv` for next time.
 3. **LinkedIn jobs — keyword scoped to company name + candidate's location.** Use the URL pattern below. **Do NOT use LinkedIn's `f_C=` company-ID filter — it is unreliable and routinely returns 0 results even when roles exist.**
    ```
    https://www.linkedin.com/jobs/search/?keywords=<COMPANY>%20director%20OR%20%22VP%22%20OR%20%22sr%20director%22%20engineering&f_TPR=r604800&location=<LOCATION>
@@ -109,7 +106,7 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
 
 ## Step 2b: Lazy inline detection (for unmapped companies)
 
-**What this is:** Phase 3 closes the bootstrap gap for [ATS-PREVIEW] (Step 2.5 below). For any company in today's `companies_per_day` slate where `ats_provider` is empty in `master_targets.csv`, this step calls `scripts/ats/detect.py detect-one` to attempt provider detection. Confirmed hits flip the company into Step 2.5's [ATS-PREVIEW] eligibility (the next /scout-run picks them up). Misses are cached as `ats_provider="none"` so we do not re-probe on subsequent runs (DET-04).
+**What this is:** Phase 3 closes the bootstrap gap for Step 2.5 (ATS Pass 1). For any company in today's `companies_per_day` slate where `ats_provider` is empty in `master_targets.csv`, this step calls `scripts/ats/detect.py detect-one` to attempt provider detection. Confirmed hits flip the company into Step 2.5's ATS Pass 1 eligibility (the next /scout-run picks them up). Misses are cached as `ats_provider="none"` so we do not re-probe on subsequent runs (DET-04).
 
 **Pre-condition:** Step 2 (Pass 1 company-first deep-dive) has already selected `companies_per_day` companies and you have their `company_name` values in scope from `master_targets.csv`.
 
@@ -139,16 +136,16 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
 **Failure modes detect.py already handles (no skill-side handling needed):**
 - rapidfuzz not installed -> `detect-one` exits 1 with install hint; Step 2b prints the stderr WARNING above and continues with `ats_provider="none"` for that company.
 - All providers return NOT_FOUND -> JSON `status="NOT_FOUND"`; cached as `ats_provider="none"` (per DET-04).
-- HTTP 200 + 0 jobs -> `detect-one` returns BORDERLINE with `note=zero_open_roles` in evidence; Step 2b records `ats_provider=<provider>` and `ats_board_url` so [ATS-PREVIEW] (Step 2.5) picks it up next run; ats_slug_confidence stays empty.
+- HTTP 200 + 0 jobs -> `detect-one` returns BORDERLINE with `note=zero_open_roles` in evidence; Step 2b records `ats_provider=<provider>` and `ats_board_url` so Step 2.5 (ATS Pass 1) picks it up next run; ats_slug_confidence stays empty.
 - Network timeout -> JSON `status="ERROR"`; cached as `ats_provider="none"` for THIS run only.
 
 **No telemetry append from Step 2b.** Per Phase 3 design (Pitfall 6 in 03-RESEARCH.md), the lazy inline path does NOT append per-company detection lines to `runs.jsonl`. Only `/scout-detect detect-batch` writes detection telemetry. The existing run line that `/scout-run` already appends (via Step 2.5's preview.py) covers the run-level summary.
 
 ---
 
-## Step 2.5: [ATS-PREVIEW] Pass 1 (Greenhouse only) — additive
+## Step 2.5: Pass 1 (ATS) — all providers
 
-**What this is:** Phase 2 of the v0.4 ATS-first migration ships a structured ATS query path (Provider Protocol + dispatcher + runs.jsonl observability) and wires Greenhouse-only fetches into `/scout-run` ADDITIVELY. The existing 3-pass flow above (Pass 1 / Pass 2 / Pass 3) still runs and still produces output. This block adds an `[ATS-PREVIEW]` slice — its listings are tagged in Step 6's report so they're visible without changing scoring or tier assignment. **Phase 5 will replace the old flow; until then, both run.** Do not interpret the [ATS-PREVIEW] tag as scoring authority.
+**What this is:** ATS-first sourcing using the multi-provider dispatcher (Greenhouse, Lever, Ashby, SmartRecruiters, Workday, plus JSON-LD fallback). All providers run in ONE process per `/scout-run` with per-provider semaphore caps. Listings produced here flow into the same scoring + tier assignment as LinkedIn-sourced listings; cross-source dedup runs in Step 4.5 and the +1 ATS tier bump applies in Step 5.
 
 **Pre-conditions** (Phase 1 already guarantees):
 - `<data_dir>/runs.jsonl` exists (created by `validate_data.py:validate_runs_log` — Step 0 step 2 above already ran).
@@ -163,7 +160,7 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
    - **SmartRecruiters:** `jobs.smartrecruiters.com/<slug>` or `careers.smartrecruiters.com/<slug>` → `<slug>`
    - **Workday:** `<tenant>.wd<N>.myworkdayjobs.com/<lang>/<site>` → use the FULL board_url (Workday providers parse tenant/dc/site from the URL itself)
 
-   Build a comma-separated string `<targets_csv>` where each entry is `slug|provider`. Example: `airbnb|greenhouse,spotify|lever,visa|smartrecruiters`. If no rows qualify (e.g. fresh master_targets.csv with no `ats_provider` populated yet), still invoke `preview.py` with `<targets_csv>=""` so a `runs.jsonl` line is appended (with 0 outcomes — Phase 5's regression-suspect logic needs the daily heartbeat). Print `[ATS-PREVIEW] No mappable companies in master_targets.csv (run /scout-detect to populate ats_provider columns).` to stdout for visibility.
+   Build a comma-separated string `<targets_csv>` where each entry is `slug|provider`. Example: `airbnb|greenhouse,spotify|lever,visa|smartrecruiters`. If no rows qualify (e.g. fresh master_targets.csv with no `ats_provider` populated yet), still invoke `preview.py` with `<targets_csv>=""` so a `runs.jsonl` line is appended (with 0 outcomes — Phase 5's regression-suspect logic needs the daily heartbeat). Print `No mappable companies in master_targets.csv (run /scout-detect to populate ats_provider columns).` to stdout for visibility.
 
    **JSON-LD routing (Phase 5 — closes Phase 4 deferral; D-4 locked).** After
    building the 5-provider entries above, ADD a SECOND filter pass for JSON-LD
@@ -190,7 +187,7 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
    `career_page_url` populated are now routed through `jsonld.py` via
    `<career_page_url>|jsonld` entries in `<targets_csv>`.
 
-2. **Invoke the [ATS-PREVIEW] driver — ONE Bash call.**
+2. **Invoke the ATS dispatcher driver — ONE Bash call.**
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/preview.py "<data_dir>" "<TODAY>" "<targets_csv>"
    ```
@@ -201,25 +198,16 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
    - appends ONE line to `<data_dir>/runs.jsonl` via `runs_log.append_run` (DSP-07) including `error: workday_auth_required` markers when Workday CSRF triggers (D-1);
    - prints a JSON summary to stdout with `outcome_count`, `wall_clock_seconds`, `per_provider_outcomes`, `per_company_provider`, `ok_with_results_companies`, and `raw_persisted` (a manifest of which raw files were written and how many listings each contains).
 
-   Capture stdout — the SKILL parses it to render the [ATS-PREVIEW] block in Step 6.
+   Capture stdout — the SKILL uses it to populate the Run Summary block in Step 6 and the per-listing render below.
 
-3. **Render in the report.** In Step 6 below, for any company in the `ok_with_results_companies` list from the JSON summary, read `<data_dir>/daily/<TODAY>/ats_raw/<provider>/<company>.json` (each file has a `listings[]` array of canonical Listing dicts). Render under a new `### [ATS-PREVIEW] ATS listings` section with this minimal block per listing:
-   ```
-   - **Company:** <company_name>
-   - **Title:** <title>
-   - **Apply:** <url>
-   - **Posted:** <posted_date>
-   - **Source:** ats:<provider>     # <provider> is greenhouse, lever, ashby, smartrecruiters, or workday
-   - **[ATS-PREVIEW]** This is Phase 2-4 plumbing. Not scored, not tier-assigned. Phase 5 will hoist into Pass 1 with the +1 ATS bump.
-   ```
-   The existing A/B/C tier blocks in Step 6 are unchanged — this is a NEW section appended after the existing Honest notes section.
+3. **Pass listings into the unified candidate set.** ATS listings produced by `preview.py` are scored and tier-assigned alongside LinkedIn listings. They no longer render in a separate section — they appear in the standard A-tier / B-tier / C-tier blocks in Step 6 with `**Source:** ats:<provider>`. Cross-source dedup (Step 4.5) reconciles overlap with LinkedIn listings; the +1 ATS tier bump (Step 5) applies to fresh ATS listings.
 
 **Failure modes the dispatcher already handles (no skill-side handling needed):**
-- 404 / unknown slug → bucketed as ERROR in runs.jsonl with the http_status; the company silently does not contribute to [ATS-PREVIEW]. Phase 5 surfaces "ATS regression suspect" warnings from runs.jsonl.
+- 404 / unknown slug → bucketed as ERROR in runs.jsonl with the http_status; the company silently does not contribute to Pass 1. Phase 5 surfaces "ATS regression suspect" warnings from runs.jsonl.
 - 200 + 0 jobs → bucketed as OK_ZERO; Phase 5 surfaces this distinguishably from ERROR.
 - Network failure / timeout → bucketed as ERROR with the exception class+message in runs.jsonl.
 - Provider mapper raises ValueError on missing required field → caught by dispatcher's worker wrapper; bucketed as ERROR; the bad job is in raw[] for replay but not in listings[].
-- `<data_dir>/config.json` missing → preview.py exits 2 with a printed message; the SKILL surfaces this as a setup error and skips Steps 3/4/5/6 of the [ATS-PREVIEW] block (the Pass 2/Pass 3 / report flow continues unaffected).
+- `<data_dir>/config.json` missing → preview.py exits 2 with a printed message; the SKILL surfaces this as a setup error and skips the remaining sub-steps of Step 2.5 (the Pass 2/Pass 3 / report flow continues unaffected).
 
 ---
 
@@ -382,11 +370,65 @@ warm-path data first.
     run only (do NOT edit `config.json`) and demote excess A-tier to B-tier
     with a note "would-be-A, raised threshold this run."
 
+(d) **Write `ab_tier_counts` for the milestone bar (D-1).**
+
+After final tier assignment in (c), count A/B-tier listings by source and write the result into the stats.json passthrough that flows to the runs.jsonl append at end-of-run:
+
+```
+"ab_tier_counts": {
+  "ats": <count of A-tier and B-tier listings where source starts with "ats:">,
+  "linkedin": <count of A-tier and B-tier listings where source == "linkedin">,
+  "total_ab": <ats + linkedin>
+}
+```
+
+This dict is passed to `runs_log.append_run(..., ab_tier_counts=...)` alongside the existing `dedup_decisions`, `regression_suspects`, and `pass2_board_status` fields. Without this write, the `runs_log.py milestone-bar` subcommand returns `pass1_share_pct: null` for this run (Pitfall 6 — the field is OPTIONAL on older runs.jsonl lines but missing-on-new-runs is a regression).
+
+C-tier listings are excluded per ROADMAP success criterion 5: "5-run rolling Pass-1 share ≥ 60% of A/B-tier candidates." C-tier listings are excluded from this count.
+
+Source classification:
+- `source` starts with `ats:` (e.g. `ats:greenhouse`, `ats:lever`, `ats:ashby`, `ats:smartrecruiters`, `ats:workday`, `ats:jsonld`) → `ats`.
+- `source == "linkedin"` → `linkedin`.
+- Pass-2 board sources (`builtin`, `wellfound`, `yc`, `hn`) are NOT in this dict — the milestone bar measures Pass-1 ATS share against LinkedIn-sourced candidates specifically.
+
 ---
 
 ## Step 6: Build the daily report
 
 Write `<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md`. Structure:
+
+### Run Summary block (top of report.md — OUT-02)
+
+Insert this block at the very top of `report.md`, before the `### Header` and A-tier sections. Fields are computed from data already in scope (preview.py JSON output from Step 2.5; final scored candidate set from Step 5; one-time milestone-bar invocation):
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/runs_log.py milestone-bar \
+  "<data_dir>/runs.jsonl" --lookback 5
+```
+
+Capture the JSON output. Then write to `report.md`:
+
+```
+## Run Summary — <TODAY>
+
+- **Total listings:** <total scored A+B+C count>
+- **A-tier:** <a> | **B-tier:** <b> | **C-tier:** <c>
+- **Pass-1 (ATS) share:** <ats_ab>/<total_ab> A/B listings (<single_run_pct>% this run; 5-run rolling: <pass1_share_pct>% — target ≥ 60%)
+- **Wall-clock (ATS fetch):** <wall_clock_seconds>s this run; 5-run avg <wall_clock_avg_seconds>s — target ≤ 300s. (ATS-fetch only, NOT total /scout-run wall-clock — D-2.)
+- **Per-provider:** greenhouse=<ok>/<zero>/<err> lever=<ok>/<zero>/<err> ashby=<ok>/<zero>/<err> smartrecruiters=<ok>/<zero>/<err> workday=<ok>/<zero>/<err> jsonld=<ok>/<zero>/<err>
+- **Top ATS regression suspects:** <up to 3 names from regression-suspects, or "none">
+- **Milestone bar met:** <bar_met true/false>
+```
+
+Sources of each field:
+1. Total + A/B/C counts: from final scored candidate set (Step 5).
+2. Pass-1 share + 5-run rolling: from `pass1_share_pct` field in milestone-bar JSON.
+3. Wall-clock this run: from `wall_clock_seconds` in preview.py stdout JSON. Wall-clock 5-run avg: from `wall_clock_avg_seconds` in milestone-bar JSON.
+4. Per-provider: from `per_provider_outcomes` in preview.py stdout JSON.
+5. Regression suspects: from `runs_log.py regression-suspects` (already called below in Step 6 — capture top 3 by `prior_ok_count` desc).
+6. Milestone bar met: `bar_met` field from milestone-bar JSON.
+
+This block replaces the per-listing render that was in the deleted Step 2.5 preview section (Task 1 edit). ATS listings now render in standard A/B/C tier blocks below with `**Source:** ats:<provider>`.
 
 ### Header
 - Run date.
@@ -510,6 +552,42 @@ The script handles dedup, stale flagging, and color formatting deterministically
 
 ---
 
+## Step 7.5: Post-write validation (CON-21)
+
+After writing `report.md` (Step 6) and appending to the tracker (Step 7), verify run artifacts are consistent. **Non-blocking** — a failure prints a WARNING but does NOT abort the run, roll back files, or modify state. Three checks in sequence:
+
+1. **Report exists and is non-empty:**
+   ```bash
+   test -s "<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md"
+   ```
+   On failure: print `WARNING: post-run validation failed: report.md missing or empty`
+
+2. **runs.jsonl was appended today:** Confirm the last line has a `timestamp` containing `<TODAY>`:
+   ```bash
+   python3 -c "
+   import json
+   lines = open('<data_dir>/runs.jsonl').readlines()
+   last = json.loads(lines[-1]) if lines else {}
+   print(last.get('timestamp', ''))
+   "
+   ```
+   On failure: print `WARNING: post-run validation failed: runs.jsonl not appended today (last timestamp: <last_ts>)`
+
+3. **A-tier count matches tracker:** Count A-tier rows from `new_rows.json` using the `tier` field — NOT `grep -c "^### "` on report.md (which would also match Honest notes, Stale, and other level-3 headers — Pitfall 7):
+   ```bash
+   python3 -c "
+   import json
+   rows = json.load(open('<data_dir>/daily/<TODAY>/new_rows.json'))
+   print(sum(1 for r in rows if r.get('tier') == 'A'))
+   "
+   ```
+   Compare the printed count against the number of A-tier listing blocks in `report.md` (count `### ` headings under the `### A-tier` section only). Allow a drift of ≤1 row (ATS-PREVIEW vs Pass-1 reconciliation edge case).
+   On failure (mismatch > 1): print `WARNING: post-run validation failed: A-tier count mismatch: report has <N> but tracker has <M> for <TODAY>`
+
+After all three checks complete, print: `post-run validation: <N>/3 checks passed`
+
+---
+
 ## Step 8: Update master_targets.csv
 
 - Update `last_checked = <TODAY>` for every company you visited in Pass 1.
@@ -531,6 +609,17 @@ After writing files, summarize in chat:
 - One honest observation pulled from the report's "Honest notes" section.
 
 If zero A-tier matches were found, **say so directly**. Do not promote B-tier to make the run feel more productive. The user trusts the scout because it doesn't inflate.
+
+### Stdout summary mirror (OUT-03)
+
+After the chat summary above, print the Run Summary block to stdout so scheduled-task logs (cron/launchd) capture it without requiring the user to open report.md:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/runs_log.py milestone-bar \
+  "<data_dir>/runs.jsonl" --lookback 5
+```
+
+Print the JSON output to stdout (this is the machine-consumable form). Then also print the human-readable run summary lines in the same format as the Step 6 report header block (Date, Wall-clock, Per-provider hits, A/B-tier counts, Pass-1 share, Regression suspects, Milestone bar status).
 
 ---
 

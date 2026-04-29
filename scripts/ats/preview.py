@@ -1,5 +1,5 @@
 """
-preview.py — Phase 2 [ATS-PREVIEW] driver. ONE process invocation per /scout-run.
+preview.py — ATS dispatcher driver. ONE process invocation per /scout-run.
 
 Why a separate driver script and not three SKILL bash steps?
 
@@ -49,9 +49,7 @@ Behavior (in order, in a SINGLE process):
 
 --help and --version smoke flags supported for verify-time sanity.
 
-Phase 5 will fold this back into a single end-of-/scout-run append once
-Pass 2 dedup lands; Phase 2's per-block append is acceptable because the
-[ATS-PREVIEW] flow is the only ATS path in this milestone.
+Per-block append is the v0.4 contract; rotation/aggregation is OOS for v0.4 per project convention.
 """
 import json
 import os
@@ -80,7 +78,7 @@ def run_preview(
     provider: str = "greenhouse",
     targets: List[Tuple[str, str]] = None,
 ) -> Dict[str, Any]:
-    """Run a single Phase 4 [ATS-PREVIEW] cycle and return the summary dict.
+    """Run a single ATS Pass 1 cycle and return the summary dict.
 
     Args:
         data_dir: absolute path; caller has already expanded ~.
@@ -91,8 +89,8 @@ def run_preview(
         targets:  list of (slug, provider) tuples — preferred multi-provider input.
                   When provided, slugs+provider are ignored.
 
-    Returns: a dict suitable for json.dump to stdout (the SKILL reads it
-             to render the [ATS-PREVIEW] block in Step 6).
+    Returns: a dict suitable for json.dump to stdout (the SKILL uses it
+             to populate the Run Summary block in Step 6).
 
     Side effects:
         - Writes <data_dir>/daily/<today>/ats_raw/<provider>/<slug>.json
@@ -198,7 +196,7 @@ if __name__ == "__main__":
         print(
             "Usage: python3 scripts/ats/preview.py <data_dir> <TODAY> <targets_csv>\n"
             "\n"
-            "Run a single [ATS-PREVIEW] cycle for /scout-run Step 2.5.\n"
+            "Run a single ATS Pass 1 cycle for /scout-run Step 2.5.\n"
             "ONE process -> ONE fetch_all -> ONE httpx.Client -> ONE runs.jsonl append.\n"
             "\n"
             "Args:\n"
