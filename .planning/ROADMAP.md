@@ -136,7 +136,14 @@ Plans:
   6. `grep -rn "pipeline_tier" skills/` returns zero matches (CON-09, CON-10) — the Pass-1 priority order in `search-config.md:52` and the +5 bonus row in `scoring-rubric.md:111` now reference `linkedin_connection_count` thresholds. A career-page URL `https://acme.com/careers/job/2024100912345` no longer trips the LinkedIn stale-flag (CON-13: `extract_linkedin_job_id` returns `None` for non-LinkedIn URLs); a user xlsx column outside `TRACKER_COLUMNS` survives a tracker append round-trip (CON-20).
   7. The new enrichment step inserts a 10–15s pause between every 5th LinkedIn navigation (CON-11); a deliberately-stripped LinkedIn JD page (no `...more` button matching the primary selector) is recovered via secondary selector + length-check retry, and the failure (if it ultimately occurs) appears in `runs.jsonl` (CON-12); a Pass-2 board returning 0 results for ≥3 of the last 5 runs surfaces a "board appears broken" line in the report's *Honest notes* (CON-15); and the local variable `flagged_stale_count` matches the returned dict key in `tracker_utils.py` (CON-14).
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Wave 0: tests/test_dedup_phase5.py + tests/test_tracker_phase5.py + 5 fixtures (RED scaffold for DDP-01..08, CON-09..15, CON-20)
+- [ ] 05-02-PLAN.md — scripts/ats/dedupe.py (two-key tiered fuzzy dedup + ATS tier bump + LinkedIn slug + enrichment-scope helper) + templates/config.json dedup.thresholds (DDP-01..05)
+- [ ] 05-03-PLAN.md — scripts/tracker_utils.py surgery: split extract_job_id, rename skipped_stale (Pitfall 6), preserve user xlsx columns (CON-12 marker, CON-13/14/20)
+- [ ] 05-04-PLAN.md — scripts/ats/runs_log.py extensions: D-2 telemetry kwargs + regression-suspects + pass2-board-broken CLI subcommands (DDP-04/06/07/08)
+- [ ] 05-05-PLAN.md — skills/scout-run/SKILL.md flow rewrite (Step 2.5 JSON-LD + Step 4.5 dedup + Step 5 enrich-then-tier + Step 6 Honest notes) + scoring-rubric.md/search-config.md/chrome-setup.md doc fixes (DDP-05..08, CON-09..12, CON-15)
 
 ### Phase 6: Run summary + delete legacy + milestone close + version/PII/post-run cleanup
 
@@ -155,7 +162,14 @@ Plans:
   6. `skills/job-scout/SKILL.md:38` no longer lists schema columns inline (CON-17) — replaced with "see `scripts/schema.py:MASTER_TARGETS_COLUMNS`"; `/scout-setup` Step 1 includes a PII warning naming `connections_summary.csv` and `master_targets.csv:connection_names`, and explicitly cautions against placing `<data_dir>` in iCloud/Dropbox/OneDrive (CON-18); a `.gitignore` template plus a "redact `resume_path` before sharing" warning is documented (CON-19).
   7. A `/scout-run` invocation that errors mid-Step 6 surfaces a `WARNING: post-run validation failed: <reason>` line on stdout naming the missing artifact (`report.md`, `runs.jsonl`, or A-tier count mismatch) — verifiable by force-killing scout-run after Step 5 in a test environment (CON-21).
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Wave 0: tests/test_dedup_phase5.py + tests/test_tracker_phase5.py + 5 fixtures (RED scaffold for DDP-01..08, CON-09..15, CON-20)
+- [ ] 05-02-PLAN.md — scripts/ats/dedupe.py (two-key tiered fuzzy dedup + ATS tier bump + LinkedIn slug + enrichment-scope helper) + templates/config.json dedup.thresholds (DDP-01..05)
+- [ ] 05-03-PLAN.md — scripts/tracker_utils.py surgery: split extract_job_id, rename skipped_stale (Pitfall 6), preserve user xlsx columns (CON-12 marker, CON-13/14/20)
+- [ ] 05-04-PLAN.md — scripts/ats/runs_log.py extensions: D-2 telemetry kwargs + regression-suspects + pass2-board-broken CLI subcommands (DDP-04/06/07/08)
+- [ ] 05-05-PLAN.md — skills/scout-run/SKILL.md flow rewrite (Step 2.5 JSON-LD + Step 4.5 dedup + Step 5 enrich-then-tier + Step 6 Honest notes) + scoring-rubric.md/search-config.md/chrome-setup.md doc fixes (DDP-05..08, CON-09..12, CON-15)
 
 ## Phase Dependencies
 
@@ -183,7 +197,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 | 2. Provider Protocol + Greenhouse + dispatcher + observability | 3/3 | Complete | 2026-04-29 |
 | 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 3/3 | Complete | 2026-04-29 |
 | 4. Remaining providers + JSON-LD + filtering | 5/5 | Complete | 2026-04-29 |
-| 5. Cross-source dedup + tier bump + enrich + scoring/tracker cleanup | 0/0 | Not started | - |
+| 5. Cross-source dedup + tier bump + enrich + scoring/tracker cleanup | 0/5 | In progress | - |
 | 6. Run summary + delete legacy + milestone close + version/PII/post-run cleanup | 0/0 | Not started | - |
 
 ## Coverage
