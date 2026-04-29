@@ -370,11 +370,65 @@ warm-path data first.
     run only (do NOT edit `config.json`) and demote excess A-tier to B-tier
     with a note "would-be-A, raised threshold this run."
 
+(d) **Write `ab_tier_counts` for the milestone bar (D-1).**
+
+After final tier assignment in (c), count A/B-tier listings by source and write the result into the stats.json passthrough that flows to the runs.jsonl append at end-of-run:
+
+```
+"ab_tier_counts": {
+  "ats": <count of A-tier and B-tier listings where source starts with "ats:">,
+  "linkedin": <count of A-tier and B-tier listings where source == "linkedin">,
+  "total_ab": <ats + linkedin>
+}
+```
+
+This dict is passed to `runs_log.append_run(..., ab_tier_counts=...)` alongside the existing `dedup_decisions`, `regression_suspects`, and `pass2_board_status` fields. Without this write, the `runs_log.py milestone-bar` subcommand returns `pass1_share_pct: null` for this run (Pitfall 6 — the field is OPTIONAL on older runs.jsonl lines but missing-on-new-runs is a regression).
+
+C-tier listings are excluded per ROADMAP success criterion 5: "5-run rolling Pass-1 share ≥ 60% of A/B-tier candidates." C-tier listings are excluded from this count.
+
+Source classification:
+- `source` starts with `ats:` (e.g. `ats:greenhouse`, `ats:lever`, `ats:ashby`, `ats:smartrecruiters`, `ats:workday`, `ats:jsonld`) → `ats`.
+- `source == "linkedin"` → `linkedin`.
+- Pass-2 board sources (`builtin`, `wellfound`, `yc`, `hn`) are NOT in this dict — the milestone bar measures Pass-1 ATS share against LinkedIn-sourced candidates specifically.
+
 ---
 
 ## Step 6: Build the daily report
 
 Write `<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md`. Structure:
+
+### Run Summary block (top of report.md — OUT-02)
+
+Insert this block at the very top of `report.md`, before the `### Header` and A-tier sections. Fields are computed from data already in scope (preview.py JSON output from Step 2.5; final scored candidate set from Step 5; one-time milestone-bar invocation):
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/runs_log.py milestone-bar \
+  "<data_dir>/runs.jsonl" --lookback 5
+```
+
+Capture the JSON output. Then write to `report.md`:
+
+```
+## Run Summary — <TODAY>
+
+- **Total listings:** <total scored A+B+C count>
+- **A-tier:** <a> | **B-tier:** <b> | **C-tier:** <c>
+- **Pass-1 (ATS) share:** <ats_ab>/<total_ab> A/B listings (<single_run_pct>% this run; 5-run rolling: <pass1_share_pct>% — target ≥ 60%)
+- **Wall-clock (ATS fetch):** <wall_clock_seconds>s this run; 5-run avg <wall_clock_avg_seconds>s — target ≤ 300s. (ATS-fetch only, NOT total /scout-run wall-clock — D-2.)
+- **Per-provider:** greenhouse=<ok>/<zero>/<err> lever=<ok>/<zero>/<err> ashby=<ok>/<zero>/<err> smartrecruiters=<ok>/<zero>/<err> workday=<ok>/<zero>/<err> jsonld=<ok>/<zero>/<err>
+- **Top ATS regression suspects:** <up to 3 names from regression-suspects, or "none">
+- **Milestone bar met:** <bar_met true/false>
+```
+
+Sources of each field:
+1. Total + A/B/C counts: from final scored candidate set (Step 5).
+2. Pass-1 share + 5-run rolling: from `pass1_share_pct` field in milestone-bar JSON.
+3. Wall-clock this run: from `wall_clock_seconds` in preview.py stdout JSON. Wall-clock 5-run avg: from `wall_clock_avg_seconds` in milestone-bar JSON.
+4. Per-provider: from `per_provider_outcomes` in preview.py stdout JSON.
+5. Regression suspects: from `runs_log.py regression-suspects` (already called below in Step 6 — capture top 3 by `prior_ok_count` desc).
+6. Milestone bar met: `bar_met` field from milestone-bar JSON.
+
+This block replaces the per-listing render that was in the deleted Step 2.5 preview section (Task 1 edit). ATS listings now render in standard A/B/C tier blocks below with `**Source:** ats:<provider>`.
 
 ### Header
 - Run date.
@@ -498,6 +552,42 @@ The script handles dedup, stale flagging, and color formatting deterministically
 
 ---
 
+## Step 7.5: Post-write validation (CON-21)
+
+After writing `report.md` (Step 6) and appending to the tracker (Step 7), verify run artifacts are consistent. **Non-blocking** — a failure prints a WARNING but does NOT abort the run, roll back files, or modify state. Three checks in sequence:
+
+1. **Report exists and is non-empty:**
+   ```bash
+   test -s "<data_dir>/daily/<TODAY>/JobScout_Report_<TODAY>.md"
+   ```
+   On failure: print `WARNING: post-run validation failed: report.md missing or empty`
+
+2. **runs.jsonl was appended today:** Confirm the last line has a `timestamp` containing `<TODAY>`:
+   ```bash
+   python3 -c "
+   import json
+   lines = open('<data_dir>/runs.jsonl').readlines()
+   last = json.loads(lines[-1]) if lines else {}
+   print(last.get('timestamp', ''))
+   "
+   ```
+   On failure: print `WARNING: post-run validation failed: runs.jsonl not appended today (last timestamp: <last_ts>)`
+
+3. **A-tier count matches tracker:** Count A-tier rows from `new_rows.json` using the `tier` field — NOT `grep -c "^### "` on report.md (which would also match Honest notes, Stale, and other level-3 headers — Pitfall 7):
+   ```bash
+   python3 -c "
+   import json
+   rows = json.load(open('<data_dir>/daily/<TODAY>/new_rows.json'))
+   print(sum(1 for r in rows if r.get('tier') == 'A'))
+   "
+   ```
+   Compare the printed count against the number of A-tier listing blocks in `report.md` (count `### ` headings under the `### A-tier` section only). Allow a drift of ≤1 row (ATS-PREVIEW vs Pass-1 reconciliation edge case).
+   On failure (mismatch > 1): print `WARNING: post-run validation failed: A-tier count mismatch: report has <N> but tracker has <M> for <TODAY>`
+
+After all three checks complete, print: `post-run validation: <N>/3 checks passed`
+
+---
+
 ## Step 8: Update master_targets.csv
 
 - Update `last_checked = <TODAY>` for every company you visited in Pass 1.
@@ -519,6 +609,17 @@ After writing files, summarize in chat:
 - One honest observation pulled from the report's "Honest notes" section.
 
 If zero A-tier matches were found, **say so directly**. Do not promote B-tier to make the run feel more productive. The user trusts the scout because it doesn't inflate.
+
+### Stdout summary mirror (OUT-03)
+
+After the chat summary above, print the Run Summary block to stdout so scheduled-task logs (cron/launchd) capture it without requiring the user to open report.md:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/runs_log.py milestone-bar \
+  "<data_dir>/runs.jsonl" --lookback 5
+```
+
+Print the JSON output to stdout (this is the machine-consumable form). Then also print the human-readable run summary lines in the same format as the Step 6 report header block (Date, Wall-clock, Per-provider hits, A/B-tier counts, Pass-1 share, Regression suspects, Milestone bar status).
 
 ---
 
