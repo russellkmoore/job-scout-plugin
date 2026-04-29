@@ -165,7 +165,30 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
 
    Build a comma-separated string `<targets_csv>` where each entry is `slug|provider`. Example: `airbnb|greenhouse,spotify|lever,visa|smartrecruiters`. If no rows qualify (e.g. fresh master_targets.csv with no `ats_provider` populated yet), still invoke `preview.py` with `<targets_csv>=""` so a `runs.jsonl` line is appended (with 0 outcomes — Phase 5's regression-suspect logic needs the daily heartbeat). Print `[ATS-PREVIEW] No mappable companies in master_targets.csv (run /scout-detect to populate ats_provider columns).` to stdout for visibility.
 
-   **JSON-LD fallback (deferred to Phase 5):** Companies with `ats_provider == "none"` AND a populated `careers_url` would route to the `jsonld` virtual provider. Phase 4 ships `jsonld.py` and registers it in PROVIDERS, but the careers_url plumbing through `/scout-run` lands in Phase 5 alongside cross-source dedup. For now, `ats_provider=none` companies are silently skipped here.
+   **JSON-LD routing (Phase 5 — closes Phase 4 deferral; D-4 locked).** After
+   building the 5-provider entries above, ADD a SECOND filter pass for JSON-LD
+   candidates:
+
+   For each row in `master_targets.csv` where `ats_provider == "none"` AND
+   `career_page_url` is non-empty, append `<career_page_url>|jsonld` to
+   `<targets_csv>`.
+
+   **Column-name guard (Pitfall 4):** the column is `career_page_url`
+   (col 3 in `MASTER_TARGETS_COLUMNS`, see `scripts/schema.py`). There is NO
+   alternate spelling for this column. Any code or prose that misspells it
+   (e.g. drops the `_page_` middle segment) silently finds nothing.
+
+   The `jsonld` provider's `fetch()` accepts any HTTP URL as its slug
+   parameter; it fetches the page once, extracts
+   `<script type="application/ld+json">JobPosting</script>` blocks, and
+   returns Listings tagged `source=ats:jsonld`. Per-provider concurrency cap
+   is `jsonld: 2` (configured in `templates/config.json`).
+
+   Example combined targets_csv: `airbnb|greenhouse,spotify|lever,https://acme.com/careers|jsonld`.
+
+   **JSON-LD fallback — IMPLEMENTED in Phase 5.** Companies with `ats_provider == "none"` AND
+   `career_page_url` populated are now routed through `jsonld.py` via
+   `<career_page_url>|jsonld` entries in `<targets_csv>`.
 
 2. **Invoke the [ATS-PREVIEW] driver — ONE Bash call.**
    ```bash
@@ -221,6 +244,26 @@ For each listing kept:
 - Run dedup against the tracker job-ID set (only useful for listings that came back through LinkedIn elsewhere).
 - Add to candidate set until the Pass 2 budget is hit.
 
+**Pass-2 telemetry (CON-15 — feeds Step 6 Honest notes):**
+
+After completing Pass 2, capture per-board listing counts as a dict and
+write to a stats.json buffer that gets merged into the runs.jsonl line at
+end-of-run:
+
+```python
+pass2_board_status = {
+    "wellfound": <count_from_wellfound>,
+    "builtin_seattle": <count_from_builtin>,
+    "hn_algolia": <count_from_hn>,
+    "yc_work_at_a_startup": <count_from_yc>,
+}
+```
+
+This dict is passed to `runs_log.append_run(..., pass2_board_status=...)`
+at end-of-run alongside the existing dispatcher outcomes. The
+`runs_log.py pass2-board-broken` CLI subcommand reads back the last 5
+runs of this dict to compute board-broken warnings (Step 6).
+
 ---
 
 ## Step 4: Pass 3 — LinkedIn keyword search (≈15% of budget, last)
@@ -238,24 +281,106 @@ For each query (in config order, primary first then underutilized):
 
 ---
 
-## Step 5: Score every candidate listing
+## Step 4.5: Cross-source dedup — Pass 1 (ATS) vs Pass 2/3 (boards + LinkedIn)
 
-For each listing in the combined candidate set:
+After Pass 2 + Pass 3 collect their candidate listings, write the LinkedIn-side
+candidate set to `<data_dir>/daily/<TODAY>/linkedin_candidates.json` (a JSON
+array of Listing dicts — same shape as the ATS raw payloads, but with
+`source: "linkedin"`). Then run the dedup module ONCE:
 
-1. **Score** with the 5-category weighted rubric from `references/search-config.md` and `references/scoring-rubric.md`:
-   | Category | Weight (config-driven) | Key question |
-   |---|---|---|
-   | Connection leverage | `connection_weight` | Who do we know there? Cross-reference `connection_names` in `master_targets.csv`. |
-   | Experience match | `experience_match_weight` | Does the JD describe things in the candidate's `strongest` skills? Penalize if it leans on `aspirational`. |
-   | Domain fit | `domain_fit_weight` | Industry/sector overlap with `industries_preferred`? |
-   | Compensation | `compensation_weight` | Stated comp range vs `salary_minimum`. |
-   | Realistic shot | `realistic_shot_weight` | Credential bias, applicant pool size, recency, repost count. |
-2. Apply rubric bonuses/penalties.
-3. Assign tier from `config.scoring`:
-   - A: `score >= tier_a_threshold`
-   - B: `tier_b_threshold <= score < tier_a_threshold`
-   - C: anything below `tier_a_threshold` that still scored — keep for visibility, don't go deep.
-4. **Hard cap: 10 A-tier listings per run.** If more qualify, raise the effective A threshold for this run only (do NOT edit `config.json`) and demote excess A-tier to B-tier with a note "would-be-A, raised threshold this run."
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/dedupe.py cross-source \
+  "<data_dir>/daily/<TODAY>/ats_raw/" \
+  "<data_dir>/daily/<TODAY>/linkedin_candidates.json" \
+  "<data_dir>/daily/<TODAY>/dedup_result.json" \
+  --config "<data_dir>/config.json"
+```
+
+Read `dedup_result.json`. The fields:
+- **`merged[]`** — auto-merged listings (loose ≥95 AND tight ≥95). ATS is
+  primary; LinkedIn fields overlay only into ATS empty slots. Merged source
+  is `ats:<provider>`.
+- **`review_band[]`** — listings with one key in 70–94 (or both not at auto-merge
+  threshold). Surface in Honest notes (Step 6) as "possible duplicates flagged."
+  Both copies remain in the candidate set.
+- **`linkedin_only[]`** — LinkedIn listings with no ATS overlap. Pass through
+  to scoring tagged `source=linkedin`.
+- **`ats_only[]`** — ATS listings with no LinkedIn overlap. Pass through tagged
+  `source=ats:<provider>`.
+- **`decisions[]`** — per-pair audit trail. Append to `runs.jsonl` via the
+  stats.json passthrough at the end of this run.
+
+The unified candidate set for Step 5 is `merged + linkedin_only + ats_only`
+(review-band entries are in both sides for transparency; final dedup decisions
+land in the report's Honest notes).
+
+---
+
+## Step 5: Enrich-then-Tier (D-1: enrich BEFORE final scoring)
+
+**Enrichment scope (D-1 locked).** For every ATS-sourced listing in the
+candidate set, decide whether it is an "enrichment candidate" by computing:
+
+  base_score (5-category rubric, no ATS bump applied yet)
+  +
+  potential ATS tier-bump (1 if source=ats:* AND posted_date ≤ 30 days, else 0)
+  ≥ A-tier threshold
+
+Use `scripts/ats/dedupe.is_enrichment_candidate(listing, base_score, today)`
+when scoring inline. The function returns True iff the listing is ATS-sourced
+AND the base+bump would reach A-tier. This MUST run BEFORE final tier
+assignment — that's the "pre-bump A-tier" rule. Do not score, assign tier,
+THEN enrich; the bump pushes some B-tier candidates into A and they need
+warm-path data first.
+
+(a) **Enrich each enrichment candidate (DDP-06, DDP-07).**
+
+    For each ATS listing flagged by `is_enrichment_candidate`:
+    1. Derive the LinkedIn company slug from `company_name` at runtime (D-3).
+       Use `scripts/ats/dedupe.derive_linkedin_slug(company_name)` —
+       lowercase + replace spaces with dashes + strip ", Inc." / ", LLC" /
+       " LLC" suffixes. NO new schema column; NO `linkedin_company_slug` in
+       `master_targets.csv`.
+    2. Navigate via Chrome MCP to
+       `https://www.linkedin.com/company/<slug>/people/`.
+    3. Capture: shared-connection count + top 3 named connections.
+    4. If the page redirects, hits a login wall, or 404s: log
+       `linkedin_enrich_unavailable` for that listing and continue —
+       enrichment is non-blocking.
+
+    **Chrome MCP scope (DDP-07).** This is the ONLY Chrome MCP step in
+    Step 5. There are NO career-page or marketing-page Chrome calls
+    anywhere in the enrichment loop. Phase 6 deletes the legacy career-page
+    scraping path; Phase 5 already scopes Chrome to LinkedIn-only.
+
+    **Rate-limit rule (CON-11).** After every 5th LinkedIn navigation in
+    this enrichment loop, pause **10–15 seconds** before the next
+    navigation. The counter is GLOBAL across all enrichment calls in this
+    Step 5 — it does NOT reset between companies. If Step 5 enriches 7
+    A-tier candidates, pause after the 5th. This prevents captcha walls
+    and rate-limit lockouts during runs that hit many warm-path companies
+    in sequence.
+
+(b) **Score with enriched data in hand.**
+
+    For each candidate listing in the unified set:
+    1. Apply the 5-category scoring rubric from
+       `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/scoring-rubric.md`.
+    2. **+1 ATS tier bump (DDP-05).** For listings with `source=ats:*` AND
+       `posted_date ≤ 30 days ago`, apply +1 tier elevation:
+         B → A (capped at A)
+         C → B
+         A → A (cap)
+       This is a **tier elevation**, NOT a score-point addition. The rubric
+       file documents this distinction unambiguously.
+    3. ATS listings older than 30 days get NO bump — the warm-path signal
+       only fires for fresh listings.
+
+(c) **Assign final tier** using post-enrichment + post-bump score.
+    Hard cap: 10 A-tier listings per run (existing rule unchanged from
+    pre-Phase-5). If more qualify, raise the effective A threshold for this
+    run only (do NOT edit `config.json`) and demote excess A-tier to B-tier
+    with a note "would-be-A, raised threshold this run."
 
 ---
 
@@ -310,6 +435,60 @@ Bullet list with the companies from Pass 1 that didn't yield anything — useful
 
 ### Honest notes (MANDATORY)
 At least one paragraph. Patterns observed, what's working, what's not. Do not soften. If results were thin, say results were thin and why.
+
+### ATS regression suspects (DDP-08)
+
+For each daily run, check whether any (company, provider) pair returned
+OK_WITH_RESULTS in 3+ of the last 5 prior runs but OK_ZERO/ERROR today.
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/runs_log.py regression-suspects \
+  "<data_dir>/runs.jsonl" --lookback 5
+```
+
+Stdout is a JSON array. For each suspect, surface in this Honest-notes
+section:
+
+> **ATS regression suspect:** `<company_slug>` / `<provider>` — returned
+> OK_WITH_RESULTS in `<prior_ok_count>`/5 prior runs but `<current_outcome>`
+> today.
+
+This is the trust-on-zero defense: provider regressions surface as visible
+warnings, not silent zeros. The Pitfall-5 offset (prior is `lines[-6:-1]`,
+current is `lines[-1]`) is encapsulated in the `runs_log.py` subcommand —
+no offset arithmetic in this prose.
+
+### Pass-2 board-broken warnings (CON-15)
+
+For each Pass-2 board (Built In Seattle, Wellfound, YC Work at a Startup,
+HN "Who is hiring"), check whether the board returned 0 listings in 3+
+of the last 5 runs:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/runs_log.py pass2-board-broken \
+  "<data_dir>/runs.jsonl" --lookback 5
+```
+
+For each broken board, surface:
+
+> **Board appears broken:** `<board>` returned 0 results in
+> `<prior_zero_count>`/5 recent runs. Verify by visiting the board's
+> URL in a browser; the scraping logic may need updating.
+
+Pass-2 board telemetry must be written to `runs.jsonl` for this to work.
+The dispatcher already writes ATS dispatcher outcomes; Step 3 (Pass 2)
+must additionally pass `pass2_board_status` to the runs.jsonl append at
+end-of-run via the stats.json passthrough.
+
+### Dedup decisions (DDP-04 — for transparency)
+
+`<data_dir>/daily/<TODAY>/dedup_result.json` `decisions[]` array contains
+the full audit trail of what was auto-merged, review-band-flagged, and
+kept-both. Surface review-band entries here as:
+
+> **Possible duplicate flagged for review:** `<linkedin_url>` and
+> `<ats_url>` matched at loose=`<loose_score>`, tight=`<tight_score>`.
+> Both retained in the report; review and reconcile manually.
 
 ### Generate-on-demand packets
 Final line of the report:
