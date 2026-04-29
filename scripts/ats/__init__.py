@@ -42,8 +42,23 @@ if TYPE_CHECKING:
 # (NAME, BOARD_URL_PATTERNS, detect, board_url_from_url, fetch, to_listing).
 # We register the MODULE itself, not an instance — runtime_checkable
 # Protocol with duck-typed module conformance.
-from .providers import greenhouse as _greenhouse_module
+# Provider modules registered as MODULES (not instances) — duck-typed
+# Protocol conformance per DSP-01. Detection order matters (Phase 3
+# detect.py iterates and stops at first CONFIRMED): greenhouse first
+# because it covers the most companies; jsonld last because D-3's
+# empty-BOARD_URL_PATTERNS guard skips it during detection.
+from .providers import greenhouse as _greenhouse_module  # noqa: E402
+from .providers import lever as _lever_module  # noqa: E402
+from .providers import ashby as _ashby_module  # noqa: E402
+from .providers import smartrecruiters as _smartrecruiters_module  # noqa: E402
+from .providers import workday as _workday_module  # noqa: E402
+from .providers import jsonld as _jsonld_module  # noqa: E402
 
 PROVIDERS: Dict[str, "Provider"] = {
     _greenhouse_module.NAME: _greenhouse_module,
+    _lever_module.NAME: _lever_module,
+    _ashby_module.NAME: _ashby_module,
+    _smartrecruiters_module.NAME: _smartrecruiters_module,
+    _workday_module.NAME: _workday_module,
+    _jsonld_module.NAME: _jsonld_module,
 }
