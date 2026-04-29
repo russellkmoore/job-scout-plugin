@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-29 (post-Plan 02-02 execution; Phase 2 in progress, 2/3 plans complete)
+**Last updated:** 2026-04-29 (post-Plan 02-03 execution; Phase 2 COMPLETE — 3/3 plans complete; all 10 DSP-* requirements landed)
 
 ## Project Reference
 
@@ -19,11 +19,11 @@
 
 ## Current Position
 
-**Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **IN PROGRESS**
-**Plan:** 2 of 3 complete (02-01 substrate done; 02-02 Greenhouse provider done; 02-03 remaining)
-**Status:** Plan 02-02 complete (DSP-09 landed); next: Plan 02-03 ([ATS-PREVIEW] wire-in to /scout-run + runs.jsonl append + ats_raw/ persistence — DSP-10)
+**Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **COMPLETE**
+**Plan:** 3 of 3 complete (02-01 substrate done; 02-02 Greenhouse provider done; 02-03 [ATS-PREVIEW] wire-in done)
+**Status:** Phase 2 closed out (all 10 DSP-* requirements landed); next: Phase 3 — Detection + /scout-detect skill + lazy inline + dead-doc-ref cleanup. ROADMAP flags Phase 3 for `/gsd-research-phase` before planning (two-factor detection gate tuning needs real top-30 batch data).
 
-**Progress:** 1/6 phases complete (Phase 2: 2/3 plans complete)
+**Progress:** 2/6 phases complete
 
 ```
 [x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
@@ -31,10 +31,10 @@
     [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05 scripts/-side, CON-07)
     [x] Plan 01-03 — docs/skills schema sync (file-contract.md path entries SCH-06; companies_per_day SSOT to templates/config.json CON-06; scout-setup legacy-dir migration prompt CON-05 user-facing)
     [x] Plan 01-04 — migration round-trip pytest + phase-wide grep gate (SCH-05; verifies 19 grep invariants + pytest exit 0)
-[~] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs) — 2/3 plans complete
+[x] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs) — 3/3 plans complete
     [x] Plan 02-01 — scripts/ats package + Provider Protocol + Listing + dispatcher (shared httpx.Client + per-provider semaphores + 3-state outcomes + kill-switch) + runs_log.py (DSP-01..08)
     [x] Plan 02-02 — Greenhouse provider conforming to Provider Protocol + airbnb 3-job sanitized fixture + SC-4 broken-fixture stress test (DSP-09)
-    [ ] Plan 02-03 — [ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 + runs.jsonl append + ats_raw/ persistence; stash-replay protocol (DSP-10)
+    [x] Plan 02-03 — [ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 via scripts/ats/preview.py (single-fetch_all driver) + runs.jsonl append + ats_raw/<provider>/<slug>.json persistence; stash-replay protocol preserved user's pending uncommitted edits (DSP-10)
 [ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
 [ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
 [ ] Phase 5 — Cross-source dedup + tier bump + enrich + scoring/tracker cleanup (16 reqs)
@@ -121,9 +121,21 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-29 — Plan 02-02 executed (Greenhouse provider + airbnb 3-job sanitized fixture + SC-4 broken-fixture stress test). DSP-09 landed; PROVIDERS["greenhouse"] now points at the greenhouse module; substrate validated end-to-end against real Greenhouse production response.
+**Last session ended:** 2026-04-29 — Plan 02-03 executed ([ATS-PREVIEW] wire-in to /scout-run Step 2.5 via scripts/ats/preview.py single-fetch_all driver; runs.jsonl append + ats_raw/<provider>/<slug>.json persistence; DSP-10 landed). **Phase 2 CLOSED OUT — all 10 DSP-* requirements complete.** User's 2 pending uncommitted hunks in skills/scout-run/SKILL.md (frontmatter version 0.3.3 + Step 2 LinkedIn URL pattern with f_C-disabled rationale) preserved byte-identical via the same stash-replay protocol Plan 01-03 used.
 
-**Plan 02-02 deliverables (this session):**
+**Plan 02-03 deliverables (this session):**
+
+- `scripts/ats/preview.py` — 221-line thin driver script: ONE process invocation per /scout-run; sibling-bootstrap (2-level); imports fetch_all + aggregate_outcomes from ats.dispatcher and append_run + RunOutcome from ats.runs_log; defines run_preview(data_dir, today, slugs, provider="greenhouse") -> dict; CLI dispatch (--help / --version / positional args); exits 0 on success, 2 on missing config.json, 1 on bad args. Verified: grep -c 'fetch_all(' = 1 (the actual call). Empty-slugs roundtrip appends exactly ONE runs.jsonl line + writes ZERO ats_raw files (commit 1de5157).
+- `skills/scout-run/SKILL.md` — +50 lines; new ## Step 2.5: [ATS-PREVIEW] Pass 1 (Greenhouse only) — additive section between existing Step 2 and Step 3; documents slug-derivation + ONE Bash call to preview.py + report-rendering pattern; references preview.py + runs_log.append_run + ats_raw paths. Verified: grep -c 'fetch_all(' in committed SKILL.md = 0 (DSP-03 invariant at the SKILL boundary). User's 2 pending uncommitted hunks preserved verbatim (commit f562cca).
+- SUMMARY at `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-03-wire-preview-SUMMARY.md`
+
+**Auto-fixed deviations during execution:** 1 × Rule 1 bug — preview.py's verbatim docstring opener contained 4 `fetch_all(` paren mentions (3 prose + 1 actual call), exceeding the threat-model verify gate of `grep -c 'fetch_all(' <= 2`. Reworded docstring + --help prose to use `fetch_all` (no paren) where it's documentation, kept paren only on the actual call at line 130. Behavior unchanged. Rolled into commit 1de5157 (Task 1). Documented in SUMMARY's Deviations section.
+
+**Stash-replay protocol post-mortem:** Plan 01-03's protocol was applied a second time successfully against the same file. Snapshot to /tmp → reset to HEAD → apply edit → commit on clean base → restore snapshot to working tree → re-apply edit on top → cleanup /tmp. Final-state diff: working tree = HEAD + user's 2 pending hunks (byte-identical to pre-Task-2 snapshot). The `## Step 3: Pass 2 — Other job boards (≈25% of budget)` heading is the load-bearing anchor (identical in HEAD and snapshot). Pattern is now established and reproducible.
+
+**Phase 2 closeout.** All 3 plans complete; all 10 DSP-* requirements landed (DSP-01..08 in Plan 02-01, DSP-09 in Plan 02-02, DSP-10 in Plan 02-03). The substrate is auditable from day one: any /scout-run invokes preview.py exactly once, opens ONE httpx.Client, writes ONE runs.jsonl heartbeat line. When /scout-detect (Phase 3) populates `ats_provider="greenhouse"` for top-30 companies, the [ATS-PREVIEW] block immediately starts producing real Greenhouse listings tagged in the daily report. Phase 5 will hoist the [ATS-PREVIEW] code path into Pass 1 anchor + apply +1 ATS tier bump.
+
+**Plan 02-02 deliverables (prior session):**
 
 - `tests/fixtures/ats/__init__.py` + `tests/fixtures/ats/greenhouse/__init__.py` — empty package markers (commit 1c9d270)
 - `tests/fixtures/ats/greenhouse/airbnb.json` — sanitized 3-job slice from `boards-api.greenhouse.io/v1/boards/airbnb/jobs?content=true` (224 jobs total at capture; first 3 sliced) (commit 1c9d270)
@@ -189,15 +201,15 @@ None at roadmap stage.
 
 **Phase 1 closeout.** All 4 plans complete; all 13 Phase 1 requirements (SCH-01..06, CON-01..07) verified by the phase-wide grep gate. The gate is a single bash pipeline that re-runs in <5 seconds — phase-completion verifier can use it directly. Test infrastructure (tests/ + tests/fixtures/ layout, sibling-bootstrap pattern, exit-code gating) established for Phase 2 + 4 to reuse.
 
-**Next action:** Complete Phase 2 — execute Plan 02-03 ([ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 + runs.jsonl append + ats_raw/<provider>/<slug>.json persistence; DSP-10). Plan 02-03 imports `fetch_all`, `aggregate_outcomes` from `scripts/ats/dispatcher.py` and `RunOutcome`, `append_run` from `scripts/ats/runs_log.py` — contracts already published by 02-01. PROVIDERS["greenhouse"] is callable: `fetch_all([(slug, "greenhouse")], cfg)` will return one OK_WITH_RESULTS / OK_ZERO / ERROR FetchOutcome per target. The `[ATS-PREVIEW]` tag goes on report lines so the existing 3-pass output is preserved (additive, non-breaking). Plan 02-03 also handles the user's pending uncommitted edits to `skills/scout-run/SKILL.md` via stash-replay protocol.
+**Next action:** Begin Phase 3 — Detection + /scout-detect skill + lazy inline detect + dead-doc-ref cleanup (DET-01..07 + DOC-01). ROADMAP.md flags Phase 3 for `/gsd-research-phase` BEFORE planning: the two-factor detection gate's tuning (200 + ≥1 job + name fuzzy match ≥85%) needs real data from a top-30 batch run. Recommended sequence: `/gsd-research-phase 3` → `/gsd-discuss-phase 3` → `/gsd-plan-phase 3` → `/gsd-execute-phase 3`. Phase 3 builds on Phase 2's substrate — `PROVIDERS["greenhouse"].detect(slug, name, client)` is callable; the dispatcher + runs.jsonl writer + preview.py driver are wired into /scout-run additively.
 
 **On resume, read in order:**
 
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-02-greenhouse-SUMMARY.md` for the most recent plan context (Greenhouse provider hand-off section)
-3. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-01-dispatcher-SUMMARY.md` for the substrate context (dispatcher + runs_log + Provider Protocol)
-4. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-03-wire-preview-PLAN.md` for the next plan (DSP-10)
-5. `.planning/ROADMAP.md` Phase 2 section for phase-level success criteria
+2. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-03-wire-preview-SUMMARY.md` for the most recent plan context (Phase 2 closeout + DSP-10 wire-in)
+3. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-02-greenhouse-SUMMARY.md` for Greenhouse provider context
+4. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-01-dispatcher-SUMMARY.md` for the substrate context (dispatcher + runs_log + Provider Protocol)
+5. `.planning/ROADMAP.md` Phase 3 section for the next phase's success criteria + flag for `/gsd-research-phase`
 
 ---
-*Plan 02-02 executed: 2026-04-29 by sequential executor agent. Plan 02-01 executed: 2026-04-29. Plan 01-04 executed: 2026-04-28. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
+*Plan 02-03 executed: 2026-04-29 by sequential executor agent. Plan 02-02 executed: 2026-04-29. Plan 02-01 executed: 2026-04-29. Plan 01-04 executed: 2026-04-28. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*

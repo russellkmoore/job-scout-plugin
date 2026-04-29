@@ -19,7 +19,7 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
 ## Phases
 
 - [x] **Phase 1: Schema migration + paths + foundational cleanup** — Bump master_targets to v=4 (add `ats_slug_confidence`, `last_ats_hit_date`), add tracker `source` + `ats_provider` columns, create `runs.jsonl` and `daily/<DATE>/ats_raw/` paths, ship the v3→v4 fixture migration test, **and** absorb the foundational concerns cleanup that touches the same scripts: fix the `consolidate_targets.py:270` KeyError, add the `application_status` enum, harden `mine_connections.py` header detection, switch `--break-system-packages` install hints to `pipx`/venv, resolve the `LEGACY_DATA_DIRS` contradiction, align the `companies_per_day` default drift, and harden `~/.job-scout/` file permissions.
-- [ ] **Phase 2: Provider Protocol + Greenhouse end-to-end + dispatcher + observability foundations** — Vertical slice: build the Provider Protocol, the canonical `Listing`, the concurrent dispatcher (httpx, semaphores, kill-switch, three-state errors), `runs.jsonl` writer with per-(company, provider) telemetry, and Greenhouse as the first conformant provider. Wire into `/scout-run` additively as `[ATS-PREVIEW]`.
+- [x] **Phase 2: Provider Protocol + Greenhouse end-to-end + dispatcher + observability foundations** — Vertical slice: build the Provider Protocol, the canonical `Listing`, the concurrent dispatcher (httpx, semaphores, kill-switch, three-state errors), `runs.jsonl` writer with per-(company, provider) telemetry, and Greenhouse as the first conformant provider. Wire into `/scout-run` additively as `[ATS-PREVIEW]`.
 - [ ] **Phase 3: Detection + `/scout-detect` skill + lazy inline detect + dead-doc-ref cleanup** — Two-factor gate detection, negative-result caching, borderline-review CSV, the new `/scout-detect` skill for top-30 batch detection, and lazy inline detection during `/scout-run`. Slug-confidence column populated; manual lock honored. **Also fixes the 3 dead `commands/scout-run.md` references in the same skill-doc files being modified for the new skill.**
 - [ ] **Phase 4: Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD fallback + filtering layer** — Four more provider modules conforming to the Protocol, JSON-LD fallback as a sixth virtual provider, per-provider posted-date overrides, intra-source regional collapse, evergreen-title blocklist, Workday CSRF/auth-required explicit detection.
 - [ ] **Phase 5: Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup** — Tiered confidence band + two-key fuzzy dedup of Pass 2 against Pass 1, conditional +1 ATS tier bump (≤30d), LinkedIn shared-connection enrichment for ATS A-candidates only, ATS regression-suspect warnings in report's *Honest notes*. Chrome MCP scoped to LinkedIn-only. **Also absorbs the scoring-rubric and tracker-utils cleanup landing on the same surfaces:** rewrite the dead `pipeline_tier` Pass-1 priority and +5 bonus, add LinkedIn rate-limit/backoff to enrichment, make LinkedIn JD lazy-load resilient, split `extract_job_id` into `extract_linkedin_job_id` + `extract_dedup_key`, rename `skipped_stale` → `flagged_stale_count`, add Pass-2 board-broken warnings, and preserve user-added xlsx columns in `_write_tracker`.
@@ -70,7 +70,7 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
 
 - [x] 02-01-dispatcher-PLAN.md — scripts/ats package skeleton + Provider Protocol + Listing dataclass + dispatcher (shared httpx.Client + per-provider semaphores + 3-state outcomes + kill-switch) + runs_log.py append-only writer (DSP-01..08)
 - [x] 02-02-greenhouse-PLAN.md — Greenhouse provider conforming to Provider Protocol + checked-in sanitized fixture (airbnb 3-job slice) + smoke roundtrip via fixture (DSP-09)
-- [ ] 02-03-wire-preview-PLAN.md — Wire [ATS-PREVIEW] Pass 1 hook into /scout-run Step 2.5 + runs.jsonl append + ats_raw/<provider>/<company>.json persistence; preserves user's pending uncommitted edits via stash-replay protocol (DSP-10)
+- [x] 02-03-wire-preview-PLAN.md — Wire [ATS-PREVIEW] Pass 1 hook into /scout-run Step 2.5 + runs.jsonl append + ats_raw/<provider>/<company>.json persistence; preserves user's pending uncommitted edits via stash-replay protocol (DSP-10)
 
 ### Phase 3: Detection + `/scout-detect` skill + lazy inline detect + dead-doc-ref cleanup
 
@@ -168,7 +168,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema migration + paths + foundational cleanup | 4/4 | Complete | 2026-04-28 |
-| 2. Provider Protocol + Greenhouse + dispatcher + observability | 2/3 | In progress | - |
+| 2. Provider Protocol + Greenhouse + dispatcher + observability | 3/3 | Complete | 2026-04-29 |
 | 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 0/0 | Not started | - |
 | 4. Remaining providers + JSON-LD + filtering | 0/0 | Not started | - |
 | 5. Cross-source dedup + tier bump + enrich + scoring/tracker cleanup | 0/0 | Not started | - |

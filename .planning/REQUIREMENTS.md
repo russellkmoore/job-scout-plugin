@@ -18,16 +18,16 @@ Requirements for the v0.4 release. Each maps to exactly one roadmap phase. IDs u
 
 ### Dispatcher + Greenhouse vertical slice (DSP)
 
-- [ ] **DSP-01**: `scripts/ats/providers/base.py` defines a `Provider` Protocol with `NAME`, `BOARD_URL_PATTERNS`, `detect()`, `board_url_from_url()`, `fetch()`, `to_listing()` — all 5 providers in v0.4 conform without inheritance
-- [ ] **DSP-02**: `scripts/ats/normalize.py` defines a canonical `Listing` dataclass with required fields (company, title, location, url, posted_date, source) and optional fields (description, department, employment_type, raw); per-provider mappers raise loudly on missing required fields (no silent default-to-empty)
-- [ ] **DSP-03**: `scripts/ats/dispatcher.py` uses one shared `httpx.Client` (instantiated once per run, closed in `finally`) with `httpx.Timeout(connect=5, read=15)` on every request
-- [ ] **DSP-04**: `scripts/ats/dispatcher.py` uses `concurrent.futures.ThreadPoolExecutor(max_workers=20)` with one `threading.Semaphore` per provider (caps configurable from `config.json`; defaults: greenhouse=10, ashby=8, lever=5, smartrecruiters=5, workday=3)
-- [ ] **DSP-05**: Dispatcher returns three distinct per-(company, provider) states: `OK_WITH_RESULTS` (n≥1 listings), `OK_ZERO` (200 response, 0 jobs), `ERROR` (any non-200, network failure, or parse failure) — all three logged separately
-- [ ] **DSP-06**: All worker exceptions are surfaced (not swallowed) — wrapper around each `executor.submit` call captures + logs to stderr + buckets as `FetchOutcome.ERROR` with (company, provider, error_type, error_message) context. Truly unexpected exceptions (`KeyboardInterrupt`, `MemoryError`, `SystemExit`) re-raise to halt the run; recoverable per-fetch exceptions (`HTTPStatusError`, `RequestError`, `ParseError`) bucket as ERROR. The dispatcher caller sees real errors via runs.jsonl + stderr.
-- [ ] **DSP-07**: `scripts/ats/runs_log.py` appends one JSON line per `/scout-run` to `<data_dir>/runs.jsonl`; line includes `timestamp`, `wall_clock_seconds`, per-provider counts (`ok_with_results`, `ok_zero`, `error`), per-(company, provider) listing counts, and field-completion telemetry (% of returned listings missing each required `Listing` field)
-- [ ] **DSP-08**: `config.json` supports `ats.concurrency_disabled: true` kill-switch flag; when true, dispatcher falls back to sequential per-provider fetches (no executor, no semaphores) — same code path otherwise
-- [ ] **DSP-09**: `scripts/ats/providers/greenhouse.py` ships first as the vertical-slice validation: detects via `boards-api.greenhouse.io/v1/boards/{slug}/jobs`, fetches all jobs, normalizes to `Listing`; checked-in fixture in `tests/fixtures/ats/greenhouse/` for one real company response (sanitized)
-- [ ] **DSP-10**: `/scout-run` Step 2 (Pass 1) is wired to call the Greenhouse-only dispatcher additively alongside the existing 3-pass flow — old flow still produces output; new ATS pass writes to `daily/<DATE>/ats_raw/` and is visible in the report behind a `[ATS-PREVIEW]` tag
+- [x] **DSP-01**: `scripts/ats/providers/base.py` defines a `Provider` Protocol with `NAME`, `BOARD_URL_PATTERNS`, `detect()`, `board_url_from_url()`, `fetch()`, `to_listing()` — all 5 providers in v0.4 conform without inheritance
+- [x] **DSP-02**: `scripts/ats/normalize.py` defines a canonical `Listing` dataclass with required fields (company, title, location, url, posted_date, source) and optional fields (description, department, employment_type, raw); per-provider mappers raise loudly on missing required fields (no silent default-to-empty)
+- [x] **DSP-03**: `scripts/ats/dispatcher.py` uses one shared `httpx.Client` (instantiated once per run, closed in `finally`) with `httpx.Timeout(connect=5, read=15)` on every request
+- [x] **DSP-04**: `scripts/ats/dispatcher.py` uses `concurrent.futures.ThreadPoolExecutor(max_workers=20)` with one `threading.Semaphore` per provider (caps configurable from `config.json`; defaults: greenhouse=10, ashby=8, lever=5, smartrecruiters=5, workday=3)
+- [x] **DSP-05**: Dispatcher returns three distinct per-(company, provider) states: `OK_WITH_RESULTS` (n≥1 listings), `OK_ZERO` (200 response, 0 jobs), `ERROR` (any non-200, network failure, or parse failure) — all three logged separately
+- [x] **DSP-06**: All worker exceptions are surfaced (not swallowed) — wrapper around each `executor.submit` call captures + logs to stderr + buckets as `FetchOutcome.ERROR` with (company, provider, error_type, error_message) context. Truly unexpected exceptions (`KeyboardInterrupt`, `MemoryError`, `SystemExit`) re-raise to halt the run; recoverable per-fetch exceptions (`HTTPStatusError`, `RequestError`, `ParseError`) bucket as ERROR. The dispatcher caller sees real errors via runs.jsonl + stderr.
+- [x] **DSP-07**: `scripts/ats/runs_log.py` appends one JSON line per `/scout-run` to `<data_dir>/runs.jsonl`; line includes `timestamp`, `wall_clock_seconds`, per-provider counts (`ok_with_results`, `ok_zero`, `error`), per-(company, provider) listing counts, and field-completion telemetry (% of returned listings missing each required `Listing` field)
+- [x] **DSP-08**: `config.json` supports `ats.concurrency_disabled: true` kill-switch flag; when true, dispatcher falls back to sequential per-provider fetches (no executor, no semaphores) — same code path otherwise
+- [x] **DSP-09**: `scripts/ats/providers/greenhouse.py` ships first as the vertical-slice validation: detects via `boards-api.greenhouse.io/v1/boards/{slug}/jobs`, fetches all jobs, normalizes to `Listing`; checked-in fixture in `tests/fixtures/ats/greenhouse/` for one real company response (sanitized)
+- [x] **DSP-10**: `/scout-run` Step 2 (Pass 1) is wired to call the Greenhouse-only dispatcher additively alongside the existing 3-pass flow — old flow still produces output; new ATS pass writes to `daily/<DATE>/ats_raw/` and is visible in the report behind a `[ATS-PREVIEW]` tag
 
 ### Detection (DET)
 
@@ -186,16 +186,16 @@ Every v1 requirement maps to exactly one phase in `.planning/ROADMAP.md`.
 | SCH-04 | Phase 1 | Complete |
 | SCH-05 | Phase 1 | Complete |
 | SCH-06 | Phase 1 | Complete |
-| DSP-01 | Phase 2 | Pending |
-| DSP-02 | Phase 2 | Pending |
-| DSP-03 | Phase 2 | Pending |
-| DSP-04 | Phase 2 | Pending |
-| DSP-05 | Phase 2 | Pending |
-| DSP-06 | Phase 2 | Pending |
-| DSP-07 | Phase 2 | Pending |
-| DSP-08 | Phase 2 | Pending |
-| DSP-09 | Phase 2 | Pending |
-| DSP-10 | Phase 2 | Pending |
+| DSP-01 | Phase 2 | Complete |
+| DSP-02 | Phase 2 | Complete |
+| DSP-03 | Phase 2 | Complete |
+| DSP-04 | Phase 2 | Complete |
+| DSP-05 | Phase 2 | Complete |
+| DSP-06 | Phase 2 | Complete |
+| DSP-07 | Phase 2 | Complete |
+| DSP-08 | Phase 2 | Complete |
+| DSP-09 | Phase 2 | Complete |
+| DSP-10 | Phase 2 | Complete |
 | DET-01 | Phase 3 | Pending |
 | DET-02 | Phase 3 | Pending |
 | DET-03 | Phase 3 | Pending |
