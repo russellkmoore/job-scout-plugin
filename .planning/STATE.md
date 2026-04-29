@@ -34,15 +34,13 @@ progress:
 
 ## Current Position
 
-Phase: 4 (Remaining providers + JSON-LD + filtering) — EXECUTING
-Plan: 1 of 5
-**Phase:** 3 — Detection + scout-detect skill + lazy inline detect + dead-doc-ref cleanup — **COMPLETE**
-**Plan:** 3 of 3 complete (03-01 detect.py + tests; 03-02 /scout-detect skill + file-contract; 03-03 lazy inline + CON-08)
-**Status:** Executing Phase 4
+**Phase:** 4 — Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD fallback + filtering layer — **COMPLETE**
+**Plan:** 5 of 5 complete (04-01 scaffolding; 04-02 Lever+Ashby; 04-03 SR+Workday; 04-04 JSON-LD; 04-05 integration)
+**Status:** Phase 4 verified (5/5 must-haves) after gap closure (commit 5b236a5 — multi-provider routing in preview.py + scout-run + workday CSRF telemetry in dispatcher)
 
-**Next phase:** 4 — Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD + filtering (11 reqs: PRV-01..09, STR-01, STR-03)
+**Next phase:** 5 — Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup (16 reqs)
 
-**Progress:** 3/6 phases complete
+**Progress:** 4/6 phases complete
 
 ```
 [x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
@@ -59,7 +57,13 @@ Plan: 1 of 5
     [x] Plan 03-02 — /scout-detect skill orchestration + ats_detection_review.csv registered in file-contract.md (DET-06, STR-02, STR-04)
     [x] Plan 03-03 — /scout-run Step 2b lazy inline detect + 3 dead commands/scout-run.md refs fixed (DET-04, DET-07, CON-08)
     [x] Inline gap closure (commit 7928f78) — borderline ats_slug_confidence visible (0.70-0.94), zero_open_roles edge case preserved (STR-02 / ROADMAP SC-1)
-[ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
+[x] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs) — 5/5 plans complete + 1 inline gap closure
+    [x] Plan 04-01 — Wave 0 scaffolding: FetchResult.auth_required field (D-1), detect.py D-3 skip-empty-BOARD_URL_PATTERNS guard, 15 RED tests, 5 fixture sets (lever, ashby, smartrecruiters, workday, jsonld)
+    [x] Plan 04-02 — Lever + Ashby providers conforming to Provider Protocol (PRV-01, PRV-02)
+    [x] Plan 04-03 — SmartRecruiters (N+1 single-semaphore, deadlock-safe) + Workday (POST + searchText="a" + CSRF detection setting auth_required=True; PRV-03, PRV-04, PRV-05)
+    [x] Plan 04-04 — JSON-LD virtual provider with BOARD_URL_PATTERNS=[] (STR-01)
+    [x] Plan 04-05 — Filter helpers (filter_stale + collapse_regional_dupes + filter_evergreen + apply_filters), PROVIDERS=6 registry wiring, dispatcher auth_required→runs.jsonl, preview.py wire-in, templates/config.json ats section (PRV-06..09, STR-03)
+    [x] Inline gap closure (commit 5b236a5) — preview.py multi-provider targets + SKILL.md Step 2.5 routes all 5 ATS providers + dispatcher.aggregate_outcomes propagates error field to runs.jsonl (closes Gap 1 SC#1+#3 + Gap 2 SC#2)
 [ ] Phase 5 — Cross-source dedup + tier bump + enrich + scoring/tracker cleanup (16 reqs)
 [ ] Phase 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs)
 ```
