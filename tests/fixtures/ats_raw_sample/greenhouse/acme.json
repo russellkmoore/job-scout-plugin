@@ -1,0 +1,18 @@
+{
+  "company_slug": "acme",
+  "provider": "greenhouse",
+  "http_status": 200,
+  "elapsed_seconds": 0.42,
+  "raw": {},
+  "listings": [
+    {
+      "company": "Acme Corp",
+      "title": "Senior Software Engineer",
+      "location": "San Francisco, CA",
+      "url": "https://boards.greenhouse.io/acme/jobs/4001",
+      "posted_date": "2026-04-13",
+      "source": "ats:greenhouse",
+      "description": "Build distributed systems at Acme"
+    }
+  ]
+}

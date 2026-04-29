@@ -1,0 +1,27 @@
+[
+  {
+    "company": "Acme Corp",
+    "title": "Senior Software Engineer",
+    "location": "San Francisco, CA",
+    "url": "https://www.linkedin.com/jobs/view/3950000000001",
+    "posted_date": "2026-04-13",
+    "source": "linkedin",
+    "description": "Build distributed systems"
+  },
+  {
+    "company": "Example Inc",
+    "title": "Software Engineer II Backend Platform",
+    "location": "Remote",
+    "url": "https://www.linkedin.com/jobs/view/3950000000002",
+    "posted_date": "2026-04-03",
+    "source": "linkedin"
+  },
+  {
+    "company": "Initech",
+    "title": "Marketing Manager Growth",
+    "location": "New York, NY",
+    "url": "https://www.linkedin.com/jobs/view/3950000000003",
+    "posted_date": "2026-04-23",
+    "source": "linkedin"
+  }
+]
