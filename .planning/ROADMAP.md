@@ -165,11 +165,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Wave 0: tests/test_dedup_phase5.py + tests/test_tracker_phase5.py + 5 fixtures (RED scaffold for DDP-01..08, CON-09..15, CON-20)
-- [ ] 05-02-PLAN.md — scripts/ats/dedupe.py (two-key tiered fuzzy dedup + ATS tier bump + LinkedIn slug + enrichment-scope helper) + templates/config.json dedup.thresholds (DDP-01..05)
-- [ ] 05-03-PLAN.md — scripts/tracker_utils.py surgery: split extract_job_id, rename skipped_stale (Pitfall 6), preserve user xlsx columns (CON-12 marker, CON-13/14/20)
-- [ ] 05-04-PLAN.md — scripts/ats/runs_log.py extensions: D-2 telemetry kwargs + regression-suspects + pass2-board-broken CLI subcommands (DDP-04/06/07/08)
-- [ ] 05-05-PLAN.md — skills/scout-run/SKILL.md flow rewrite (Step 2.5 JSON-LD + Step 4.5 dedup + Step 5 enrich-then-tier + Step 6 Honest notes) + scoring-rubric.md/search-config.md/chrome-setup.md doc fixes (DDP-05..08, CON-09..12, CON-15)
+- [ ] 06-01-PLAN.md — Wave 0 RED tests: tests/test_runs_log_phase6.py (5 tests for compute_milestone_bar + milestone-bar CLI + edges; OUT-07 RED scaffold)
+- [ ] 06-02-PLAN.md — scripts/ats/runs_log.py extensions: compute_milestone_bar helper + milestone-bar CLI subcommand + ab_tier_counts optional kwarg in append_run (D-1, D-2 — turns Plan 06-01 RED to GREEN; OUT-07)
+- [ ] 06-03-PLAN.md — Doc + version cleanup bundle: job-scout/SKILL.md inline column list deletion, scout-setup/SKILL.md PII callout + .gitignore template, scout-detect/SKILL.md line 153 reword, chrome-setup.md verify, plugin.json version + description, README v0.4 capabilities section (OUT-04, OUT-05, OUT-06, CON-16 [3-of-4 SKILL.md], CON-17, CON-18, CON-19)
+- [ ] 06-04-PLAN.md — scout-run/SKILL.md integration: Step 2 marketing-page deletion (P1, P3), Step 2.5 banner cleanup (P2), Step 5 ab_tier_counts write (D-1, P4), Step 6 Run Summary block (OUT-01, OUT-02), Step 7.5 post-write validation (CON-21, P7), Step 9 stdout mirror (OUT-03), version bump + preview.py docstring cleanup (OUT-01..04, CON-16 [final SKILL.md], CON-21)
+- [ ] 06-05-PLAN.md — Phase-wide grep gate: tests/test_phase6_grep_gate.py (9 pytest assertions encoding VALIDATION.md gate — [ATS-PREVIEW]=0, marketing-page=0, version lockstep=4, milestone-bar CLI smoke; OUT-03..07, CON-16..19, CON-21)
 
 ## Phase Dependencies
 
