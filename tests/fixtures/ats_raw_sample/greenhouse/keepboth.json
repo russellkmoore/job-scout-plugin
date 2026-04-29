@@ -1,0 +1,17 @@
+{
+  "company_slug": "initech",
+  "provider": "greenhouse",
+  "http_status": 200,
+  "elapsed_seconds": 0.28,
+  "raw": {},
+  "listings": [
+    {
+      "company": "Initech",
+      "title": "Sales Director Enterprise",
+      "location": "New York, NY",
+      "url": "https://boards.greenhouse.io/initech/jobs/9001",
+      "posted_date": "2026-04-23",
+      "source": "ats:greenhouse"
+    }
+  ]
+}

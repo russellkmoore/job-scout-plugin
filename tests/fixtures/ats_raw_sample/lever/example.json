@@ -1,0 +1,18 @@
+{
+  "company_slug": "example",
+  "provider": "lever",
+  "http_status": 200,
+  "elapsed_seconds": 0.31,
+  "raw": {},
+  "listings": [
+    {
+      "company": "Example Inc",
+      "title": "Backend Platform Engineer",
+      "location": "Remote",
+      "url": "https://jobs.lever.co/example/abc-123",
+      "posted_date": "2026-04-03",
+      "source": "ats:lever",
+      "description": "Platform team — backend services"
+    }
+  ]
+}
