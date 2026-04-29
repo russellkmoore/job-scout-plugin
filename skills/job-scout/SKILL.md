@@ -43,7 +43,7 @@ Reference column names by importing from this module (in scripts) or by name (in
 
 ## How `/scout-run` works (high level)
 
-The full step-by-step is in `commands/scout-run.md`. The shape:
+The full step-by-step is in `skills/scout-run/SKILL.md`. The shape:
 
 1. **Resolve `data_dir`** via `scripts/state.py resolve`. If missing → tell user to run `/scout-setup`.
 2. **Validate** the data dir via `scripts/validate_data.py`. Auto-migrates schema, creates missing dirs, never destroys data.
@@ -102,7 +102,7 @@ Read `references/tailoring-guide.md`. Key outputs:
 3. **Bullet promotion** — specific bullets by name, not generic advice.
 4. **Wording alignment** — where to mirror JD phrasing.
 
-By default these go inline in the daily report (the "ATS keyword diff" block). Full tailored resume + outreach drafts are generated **on demand** when the user replies with `pack <id> ...` after reviewing the report. See `commands/scout-run.md` "On-demand: generate A-tier packet" for the file layout.
+By default these go inline in the daily report (the "ATS keyword diff" block). Full tailored resume + outreach drafts are generated **on demand** when the user replies with `pack <id> ...` after reviewing the report. See `skills/scout-run/SKILL.md` "On-demand: generate A-tier packet" for the file layout.
 
 ## Honest notes (mandatory)
 
