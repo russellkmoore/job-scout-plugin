@@ -110,7 +110,14 @@ Plans:
   4. The report no longer contains evergreen "Talent Network"/"General Application"/"Future Opportunities" entries, no stale (>60d default) postings, and no regional duplicates of the same role from the same provider — verified by spot-check on a Workday tenant known to post US/UK/EU variants.
   5. The user can override `ats.posted_date_max_age_days` per provider in `config.json` (e.g., Workday=90, Greenhouse=30) and the filter respects the override at next run.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Wave 0 scaffolding: base.py auth_required field + detect.py D-3 skip guard + tests/test_providers_phase4.py (15 RED tests) + 5 fixture sets (PRV-05, PRV-09, STR-01)
+- [ ] 04-02-PLAN.md — Lever + Ashby providers (PRV-01, PRV-02)
+- [ ] 04-03-PLAN.md — SmartRecruiters + Workday providers + Workday CSRF detection (PRV-03, PRV-04, PRV-05)
+- [ ] 04-04-PLAN.md — JSON-LD virtual provider (STR-01)
+- [ ] 04-05-PLAN.md — normalize.py filters + PROVIDERS registry wiring + dispatcher auth_required reason + preview.py apply_filters + templates/config.json ats section (PRV-05, PRV-06, PRV-07, PRV-08, PRV-09, STR-03)
 
 ### Phase 5: Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup
 
@@ -175,7 +182,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 | 1. Schema migration + paths + foundational cleanup | 4/4 | Complete | 2026-04-28 |
 | 2. Provider Protocol + Greenhouse + dispatcher + observability | 3/3 | Complete | 2026-04-29 |
 | 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 3/3 | Complete | 2026-04-29 |
-| 4. Remaining providers + JSON-LD + filtering | 0/0 | Not started | - |
+| 4. Remaining providers + JSON-LD + filtering | 0/5 | Planned | - |
 | 5. Cross-source dedup + tier bump + enrich + scoring/tracker cleanup | 0/0 | Not started | - |
 | 6. Run summary + delete legacy + milestone close + version/PII/post-run cleanup | 0/0 | Not started | - |
 
