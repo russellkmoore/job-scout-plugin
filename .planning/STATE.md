@@ -1,6 +1,6 @@
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-29 (post-Plan 02-01 execution; Phase 2 in progress, 1/3 plans complete)
+**Last updated:** 2026-04-29 (post-Plan 02-02 execution; Phase 2 in progress, 2/3 plans complete)
 
 ## Project Reference
 
@@ -20,10 +20,10 @@
 ## Current Position
 
 **Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **IN PROGRESS**
-**Plan:** 1 of 3 complete (02-01 substrate done; 02-02 + 02-03 remaining)
-**Status:** Plan 02-01 complete (DSP-01..08 landed); next: Plan 02-02 (Greenhouse provider — DSP-09)
+**Plan:** 2 of 3 complete (02-01 substrate done; 02-02 Greenhouse provider done; 02-03 remaining)
+**Status:** Plan 02-02 complete (DSP-09 landed); next: Plan 02-03 ([ATS-PREVIEW] wire-in to /scout-run + runs.jsonl append + ats_raw/ persistence — DSP-10)
 
-**Progress:** 1/6 phases complete (Phase 2: 1/3 plans complete)
+**Progress:** 1/6 phases complete (Phase 2: 2/3 plans complete)
 
 ```
 [x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
@@ -31,9 +31,9 @@
     [x] Plan 01-02 — state.py perm hardening + LEGACY_DATA_DIRS deletion + consolidate_targets dead-block + mine_connections header guard + venv install hints sites 3-4 (CON-01, CON-03, CON-04 sites 3-4 of 4, CON-05 scripts/-side, CON-07)
     [x] Plan 01-03 — docs/skills schema sync (file-contract.md path entries SCH-06; companies_per_day SSOT to templates/config.json CON-06; scout-setup legacy-dir migration prompt CON-05 user-facing)
     [x] Plan 01-04 — migration round-trip pytest + phase-wide grep gate (SCH-05; verifies 19 grep invariants + pytest exit 0)
-[~] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs) — 1/3 plans complete
+[~] Phase 2 — Provider Protocol + Greenhouse + dispatcher + observability (10 reqs) — 2/3 plans complete
     [x] Plan 02-01 — scripts/ats package + Provider Protocol + Listing + dispatcher (shared httpx.Client + per-provider semaphores + 3-state outcomes + kill-switch) + runs_log.py (DSP-01..08)
-    [ ] Plan 02-02 — Greenhouse provider conforming to Provider Protocol + airbnb 3-job sanitized fixture (DSP-09)
+    [x] Plan 02-02 — Greenhouse provider conforming to Provider Protocol + airbnb 3-job sanitized fixture + SC-4 broken-fixture stress test (DSP-09)
     [ ] Plan 02-03 — [ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 + runs.jsonl append + ats_raw/ persistence; stash-replay protocol (DSP-10)
 [ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
 [ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
@@ -121,9 +121,21 @@ None at roadmap stage.
 
 ## Session Continuity
 
-**Last session ended:** 2026-04-29 — Plan 02-01 executed (scripts/ats package skeleton + Provider Protocol + Listing + dispatcher + runs_log.py). DSP-01..08 landed; PROVIDERS registry empty pending Plan 02-02.
+**Last session ended:** 2026-04-29 — Plan 02-02 executed (Greenhouse provider + airbnb 3-job sanitized fixture + SC-4 broken-fixture stress test). DSP-09 landed; PROVIDERS["greenhouse"] now points at the greenhouse module; substrate validated end-to-end against real Greenhouse production response.
 
-**Plan 02-01 deliverables (this session):**
+**Plan 02-02 deliverables (this session):**
+
+- `tests/fixtures/ats/__init__.py` + `tests/fixtures/ats/greenhouse/__init__.py` — empty package markers (commit 1c9d270)
+- `tests/fixtures/ats/greenhouse/airbnb.json` — sanitized 3-job slice from `boards-api.greenhouse.io/v1/boards/airbnb/jobs?content=true` (224 jobs total at capture; first 3 sliced) (commit 1c9d270)
+- `tests/fixtures/ats/greenhouse/SOURCE.md` — fixture provenance + re-capture command + sanitization-log table (no redactions required for airbnb's public response) (commit 1c9d270)
+- `scripts/ats/providers/greenhouse.py` — first conformant Provider Protocol implementation; module-level NAME, BOARD_URL_PATTERNS, detect, board_url_from_url, fetch, to_listing; html.unescape+HTMLParser two-stage stripping for entity-encoded `content` field; 3-level sibling-bootstrap; conditional httpx import (commit f358454)
+- `scripts/ats/__init__.py` — PROVIDERS registry now contains 'greenhouse' via relative import (`from .providers import greenhouse as _greenhouse_module`); registers MODULE not instance for duck-typed Protocol conformance (commit 31d3762)
+- SC-4 broken-fixture stress test passed: synthetic `_BrokenGreenhouse` stub bypasses greenhouse.fetch's per-job try/except, ValueError propagates to `_execute_one`, bucketed as ERROR with 'title' in error message; broken fixture cleaned up (Task 4 — no commit, no tracked artifacts)
+- SUMMARY at `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-02-greenhouse-SUMMARY.md`
+
+**Auto-fixed deviations during execution:** 1 × Rule 1 bug — Greenhouse `content` is HTML-ENTITY-ENCODED HTML (`&lt;p&gt;...` not `<p>...`). Plan task action's `_strip_html` fed content directly to HTMLParser, which would leave entity-encoded tags as literal text in Listing.description (and the `'<' not in description` smoke assertion would PASS spuriously because there are no real `<` chars in encoded form). Fix: html.unescape FIRST, then HTMLParser. Rolled into commit f358454 (Task 2). Documented in SUMMARY's Deviations section.
+
+**Plan 02-01 deliverables (prior session):**
 
 - `scripts/ats/__init__.py` — package marker + `PROVIDERS: Dict[str, "Provider"] = {}` empty registry + 1/2/3-level sibling-bootstrap docstring (commit f2703c4)
 - `scripts/ats/providers/__init__.py` — providers package marker (commit f2703c4)
@@ -177,15 +189,15 @@ None at roadmap stage.
 
 **Phase 1 closeout.** All 4 plans complete; all 13 Phase 1 requirements (SCH-01..06, CON-01..07) verified by the phase-wide grep gate. The gate is a single bash pipeline that re-runs in <5 seconds — phase-completion verifier can use it directly. Test infrastructure (tests/ + tests/fixtures/ layout, sibling-bootstrap pattern, exit-code gating) established for Phase 2 + 4 to reuse.
 
-**Next action:** Continue Phase 2 — execute Plan 02-02 (Greenhouse provider conforming to Provider Protocol + sanitized airbnb 3-job fixture + smoke roundtrip via fixture; DSP-09). Plan 02-02 imports `Provider`, `FetchResult`, `DetectionResult`, `DetectionStatus` from `scripts/ats/providers/base.py` and `Listing`, `REQUIRED_FIELDS` from `scripts/ats/normalize.py` — contracts already published by 02-01. Plan 02-02 registers `PROVIDERS["greenhouse"] = GreenhouseProvider` at module bottom. Sibling-bootstrap is 3-level for `scripts/ats/providers/greenhouse.py` (file → providers → ats → scripts).
+**Next action:** Complete Phase 2 — execute Plan 02-03 ([ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 + runs.jsonl append + ats_raw/<provider>/<slug>.json persistence; DSP-10). Plan 02-03 imports `fetch_all`, `aggregate_outcomes` from `scripts/ats/dispatcher.py` and `RunOutcome`, `append_run` from `scripts/ats/runs_log.py` — contracts already published by 02-01. PROVIDERS["greenhouse"] is callable: `fetch_all([(slug, "greenhouse")], cfg)` will return one OK_WITH_RESULTS / OK_ZERO / ERROR FetchOutcome per target. The `[ATS-PREVIEW]` tag goes on report lines so the existing 3-pass output is preserved (additive, non-breaking). Plan 02-03 also handles the user's pending uncommitted edits to `skills/scout-run/SKILL.md` via stash-replay protocol.
 
 **On resume, read in order:**
 
 1. This file (`.planning/STATE.md`) for current position
-2. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-01-dispatcher-SUMMARY.md` for the most recent plan context (substrate hand-off section is the key)
-3. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-02-greenhouse-PLAN.md` for the next plan (DSP-09)
-4. `.planning/ROADMAP.md` Phase 2 section for phase-level success criteria
-5. `.planning/research/SUMMARY.md` for ATS provider integration research findings (HIGH confidence)
+2. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-02-greenhouse-SUMMARY.md` for the most recent plan context (Greenhouse provider hand-off section)
+3. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-01-dispatcher-SUMMARY.md` for the substrate context (dispatcher + runs_log + Provider Protocol)
+4. `.planning/phases/02-provider-protocol-greenhouse-dispatcher-observability/02-03-wire-preview-PLAN.md` for the next plan (DSP-10)
+5. `.planning/ROADMAP.md` Phase 2 section for phase-level success criteria
 
 ---
-*Plan 02-01 executed: 2026-04-29 by sequential executor agent. Plan 01-04 executed: 2026-04-28. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
+*Plan 02-02 executed: 2026-04-29 by sequential executor agent. Plan 02-01 executed: 2026-04-29. Plan 01-04 executed: 2026-04-28. Plan 01-03 executed: 2026-04-28. Plan 01-02 executed: 2026-04-28. Plan 01-01 executed: 2026-04-28. State initialized: 2026-04-27 by /gsd-new-project (roadmapper).*
