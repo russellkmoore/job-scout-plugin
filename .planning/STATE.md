@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-29T15:35:09.285Z"
+last_updated: "2026-04-29T16:52:38.119Z"
 progress:
   total_phases: 6
   completed_phases: 4
@@ -34,9 +34,11 @@ progress:
 
 ## Current Position
 
+Phase: 5 (Cross-source dedup + tier bump + enrich + scoring/tracker cleanup) — EXECUTING
+Plan: 1 of 5
 **Phase:** 4 — Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD fallback + filtering layer — **COMPLETE**
 **Plan:** 5 of 5 complete (04-01 scaffolding; 04-02 Lever+Ashby; 04-03 SR+Workday; 04-04 JSON-LD; 04-05 integration)
-**Status:** Ready to execute
+**Status:** Executing Phase 5
 
 **Next phase:** 5 — Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup (16 reqs)
 
