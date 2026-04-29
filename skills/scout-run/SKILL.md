@@ -2,7 +2,7 @@
 name: scout-run
 description: Run a daily job search — broad sourcing across LinkedIn, career pages, and other boards, with honest scoring and actionable per-match output. Triggers when the user types `/scout-run` or asks to "run the job scout", "find me jobs", "do a daily job search", "check for new job matches".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite, mcp__Claude_in_Chrome__*
-version: 0.3.1
+version: 0.3.3
 ---
 
 Execute a Job Scout search run. The scout uses Claude in Chrome to perform a wide, deliberate search across company career pages, several job boards, and LinkedIn — scores matches honestly against the candidate's actual profile — and produces a daily report plus tracker update with **actionable** A-tier output (warm path, ATS keyword diff, outreach draft).
@@ -87,7 +87,14 @@ For each selected company, hit sources in this order and stop early if you've fo
 1. **Career page** (`career_page_url`) — read directly. Career pages give full JDs without lazy-loading and often list roles before LinkedIn does.
 2. **ATS board** (`ats_board_url`, if populated) — Greenhouse/Lever/Workday/Ashby. ATS pages have richer filter and structured data.
    - If `ats_provider` is empty but `career_page_url` looks like `boards.greenhouse.io/X`, `jobs.lever.co/X`, `myworkdayjobs.com`, or `<company>.ashbyhq.com`, populate `ats_provider` and `ats_board_url` in `master_targets.csv` for next time.
-3. **LinkedIn company jobs tab** (`linkedin.com/company/<slug>/jobs/`) — last resort within Pass 1. Lower signal, but catches roles other sources miss.
+3. **LinkedIn jobs — keyword scoped to company name + candidate's location.** Use the URL pattern below. **Do NOT use LinkedIn's `f_C=` company-ID filter — it is unreliable and routinely returns 0 results even when roles exist.**
+   ```
+   https://www.linkedin.com/jobs/search/?keywords=<COMPANY>%20director%20OR%20%22VP%22%20OR%20%22sr%20director%22%20engineering&f_TPR=r604800&location=<LOCATION>
+   ```
+   - Substitute `<COMPANY>` with the master_targets `company_name` (URL-encoded).
+   - Substitute `<LOCATION>` with the candidate's metro from `config.candidate.location` (e.g. `Seattle%20Washington%20United%20States`). For remote-eligible candidates, also run a second pass with `location=United%20States` and `f_WT=2` (remote work-type filter).
+   - The `f_TPR=r604800` filter is "past week"; use `r86400` for "past 24 hours" on subsequent same-day runs.
+   - This pattern is the one that empirically surfaces warm-path-rich matches at companies with master_targets entries (verified 2026-04-27 run — found 7-connection Salesforce VP TSE and 4-connection lululemon Tech Director that the scheduled run missed). **If you skip this step you will miss the highest-leverage matches of the day.**
 
 For each promising listing:
 - Extract: title, location, comp range (if shown), apply URL (prefer the company-direct URL over a LinkedIn redirect), JD text (full).

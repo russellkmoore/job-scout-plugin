@@ -90,6 +90,31 @@ This project uses the **GSD** (Get Shit Done) workflow. Configuration in `.plann
 - **No `requirements.txt` or formal dependency manifest.** Project convention: `ImportError` handlers print install hints (now `pipx`, per CON-04).
 - **No general test suite.** v0.4 carve-out is `tests/test_migration.py` + per-provider fixture tests in `tests/fixtures/ats/<provider>/`. Not a broader suite.
 
+## Model routing (cost discipline)
+
+This project uses `model_profile: adaptive` — Opus is reserved for `gsd-planner` only. All other agents (executor, verifier, plan_checker, researcher, mapper) run on Sonnet or Haiku.
+
+**Subagents (executor, etc.) MUST delegate generation work to the `cf-code-assistant` MCP server** when the task fits one of these patterns:
+
+- Generating new code from a description (e.g., a new provider module, a new CLI script)
+- Scaffolding tests for existing code
+- Generating JSDoc/TSDoc/docstrings
+- Inferring types from untyped code
+- Mechanical transforms (rename, reformat, convert patterns)
+- Fixing a specific bug given the code and error message
+- Writing a commit message from a diff
+- Scaffolding boilerplate (Worker, Python module skeleton)
+
+**Critical rule:** never call `generateCode` or `generateWorkerBoilerplate` cold. Gather context first (read existing modules, fetch docs via Context7, look at sibling files), then pass that as the `context` parameter. Claude gathers, qwen3 generates.
+
+**Keep with Claude (do NOT delegate):**
+- Multi-file reasoning (cross-file refactors, plan execution coordination)
+- Architecture decisions and tradeoff analysis
+- GSD workflow steps (planning, verification, plan-checking)
+- Anything requiring web search or Context7 lookups upfront
+
+The executor's job is orchestration: read PLAN.md, gather context for each task, delegate generation to qwen3 where applicable, review output, integrate, commit. This keeps Sonnet token usage focused on judgement, not character-by-character code generation.
+
 ## Working in this repo
 
 When the user invokes a `/scout-*` skill, the plugin runtime executes `skills/<skill>/SKILL.md` step-by-step. Skills load shared knowledge from `skills/job-scout/references/*.md` before doing anything else.

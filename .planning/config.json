@@ -3,7 +3,7 @@
   "granularity": "standard",
   "parallelization": true,
   "commit_docs": true,
-  "model_profile": "quality",
+  "model_profile": "adaptive",
   "workflow": {
     "research": true,
     "plan_check": true,
@@ -12,13 +12,13 @@
     "auto_advance": true
   },
   "models": {
-    "researcher": "claude-opus-4-7",
-    "synthesizer": "claude-opus-4-7",
-    "roadmapper": "claude-opus-4-7",
+    "researcher": "claude-sonnet-4-6",
+    "synthesizer": "claude-sonnet-4-6",
+    "roadmapper": "claude-sonnet-4-6",
     "planner": "claude-opus-4-7",
-    "plan_checker": "claude-opus-4-7",
-    "verifier": "claude-opus-4-7",
+    "plan_checker": "claude-haiku-4-5",
+    "verifier": "claude-sonnet-4-6",
     "executor": "claude-sonnet-4-6",
-    "mapper": "claude-sonnet-4-6"
+    "mapper": "claude-haiku-4-5"
   }
 }
