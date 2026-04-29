@@ -31,7 +31,19 @@ from typing import Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from .providers.base import Provider
 
-# Provider registry. Populated by per-provider modules at import time
-# (see scripts/ats/providers/__init__.py and individual provider modules).
-# Plan 02-01 ships this as empty; Plan 02-02 populates "greenhouse".
-PROVIDERS: Dict[str, "Provider"] = {}
+# Provider registry. Populated at package import time.
+# The dispatcher and detector iterate PROVIDERS.items() and never name a
+# specific provider — adding Jobvite/Taleo in v0.5+ is one new file +
+# one registry entry here.
+#
+# Phase 2 ships only "greenhouse" (DSP-09). Phase 4 adds "lever", "ashby",
+# "smartrecruiters", "workday" (PRV-01..04). Each provider's module
+# exports the Protocol-required surface as MODULE-LEVEL functions/attrs
+# (NAME, BOARD_URL_PATTERNS, detect, board_url_from_url, fetch, to_listing).
+# We register the MODULE itself, not an instance — runtime_checkable
+# Protocol with duck-typed module conformance.
+from .providers import greenhouse as _greenhouse_module
+
+PROVIDERS: Dict[str, "Provider"] = {
+    _greenhouse_module.NAME: _greenhouse_module,
+}
