@@ -52,5 +52,22 @@
     "realistic_shot_weight": 10,
     "tier_a_threshold": 75,
     "tier_b_threshold": 55
+  },
+
+  "ats": {
+    "posted_date_max_age_days": 60,
+    "provider_posted_date_overrides": {
+      "workday": 90,
+      "greenhouse": 30
+    },
+    "concurrency_disabled": false,
+    "provider_concurrency_caps": {
+      "greenhouse": 10,
+      "lever": 5,
+      "ashby": 8,
+      "smartrecruiters": 5,
+      "workday": 3,
+      "jsonld": 3
+    }
   }
 }
