@@ -69,5 +69,12 @@
       "workday": 3,
       "jsonld": 3
     }
+  },
+
+  "dedup": {
+    "thresholds": {
+      "auto_merge": 95,
+      "review_band_min": 70
+    }
   }
 }
