@@ -1,0 +1,13 @@
+{
+  "total": 12,
+  "jobPostings": [
+    {
+      "title": "Synthetic Today Role",
+      "externalPath": "/job/USNY-NewYork/Synthetic-Today-Role_JR-9000001",
+      "locationsText": "New York, NY",
+      "postedOn": "Posted Today",
+      "remoteType": "Onsite",
+      "bulletFields": ["JR-9000001"]
+    }
+  ]
+}

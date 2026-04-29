@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1ff4a4e3-aaaa-bbbb-cccc-dddddddddddd",
+    "text": "Senior Software Engineer",
+    "hostedUrl": "https://jobs.lever.co/spotify/1ff4a4e3-aaaa-bbbb-cccc-dddddddddddd",
+    "createdAt": 1773335421350,
+    "categories": {
+      "location": "Remote - USA",
+      "department": "Engineering",
+      "commitment": "Full-time"
+    },
+    "descriptionPlain": "Senior backend engineer role for streaming infra."
+  },
+  {
+    "id": "2aa5b5f4-eeee-ffff-1111-222222222222",
+    "text": "Product Designer",
+    "hostedUrl": "https://jobs.lever.co/spotify/2aa5b5f4-eeee-ffff-1111-222222222222",
+    "createdAt": 1773225321000,
+    "categories": {
+      "location": "Stockholm, Sweden",
+      "department": "Design",
+      "commitment": "Full-time"
+    },
+    "descriptionPlain": "Lead designer for podcasts surface."
+  },
+  {
+    "id": "3bb6c6g5-3333-4444-5555-666666666666",
+    "text": "Data Scientist",
+    "hostedUrl": "https://jobs.lever.co/spotify/3bb6c6g5-3333-4444-5555-666666666666",
+    "createdAt": 1773115221000,
+    "categories": {
+      "location": "New York, NY",
+      "department": "Data Science",
+      "commitment": "Full-time"
+    },
+    "descriptionPlain": "Recommendation systems data science."
+  }
+]
