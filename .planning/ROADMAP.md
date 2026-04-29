@@ -88,7 +88,12 @@ Phase 6 explicitly verifies (1) and (2). Phases 2–5 establish the observabilit
   5. During `/scout-run`, any company in the day's slate with empty `ats_provider` triggers inline detection via the same `detect-one` code path, and the result is written back to `master_targets.csv` after the run — no re-detection on subsequent runs.
   6. `grep -rn "commands/scout-run.md" skills/` returns zero matches (CON-08); the 3 doc references at `skills/job-scout/SKILL.md:46`, `skills/job-scout/SKILL.md:105`, `skills/job-scout/references/search-config.md:28` now point at `skills/scout-run/SKILL.md`.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — detect.py + rapidfuzz install + tests/test_detection.py + ats_detection_review.csv writer (DET-01..05, DET-07, STR-02, STR-04)
+- [ ] 03-02-PLAN.md — /scout-detect SKILL.md + ats_detection_review.csv added to file-contract.md (DET-06, STR-02, STR-04)
+- [ ] 03-03-PLAN.md — /scout-run Step 2b lazy inline detect + 3 CON-08 dead-doc-ref rewrites (DET-04, DET-07, CON-08)
 
 ### Phase 4: Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD fallback + filtering layer
 
@@ -169,7 +174,7 @@ Strictly linear. Each phase consumes the artifacts of the previous one. No phase
 |-------|----------------|--------|-----------|
 | 1. Schema migration + paths + foundational cleanup | 4/4 | Complete | 2026-04-28 |
 | 2. Provider Protocol + Greenhouse + dispatcher + observability | 3/3 | Complete | 2026-04-29 |
-| 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 0/0 | Not started | - |
+| 3. Detection + /scout-detect + lazy inline + dead-doc-ref cleanup | 0/3 | Planned | - |
 | 4. Remaining providers + JSON-LD + filtering | 0/0 | Not started | - |
 | 5. Cross-source dedup + tier bump + enrich + scoring/tracker cleanup | 0/0 | Not started | - |
 | 6. Run summary + delete legacy + milestone close + version/PII/post-run cleanup | 0/0 | Not started | - |
