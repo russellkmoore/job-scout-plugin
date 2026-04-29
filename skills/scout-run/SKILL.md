@@ -156,34 +156,38 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
 
 **Architectural invariant — ONE process per /scout-run.** Per DSP-03 (locked), the dispatcher uses ONE shared `httpx.Client` per run. To honor that at the SKILL boundary, all three responsibilities — invoke the dispatcher, persist raw payloads, append `runs.jsonl` — live inside `scripts/ats/preview.py` and the SKILL invokes it with EXACTLY ONE Bash call.
 
-1. **Build the slug list.** Read `master_targets.csv` columns `company_name`, `ats_provider`, `ats_board_url` (already in scope from Step 0). Filter to rows where `ats_provider == "greenhouse"` AND `ats_board_url` is non-empty. For each kept row, derive the company slug from `ats_board_url`:
-   - `https://boards.greenhouse.io/<slug>` → `<slug>`
-   - `https://boards-api.greenhouse.io/v1/boards/<slug>` → `<slug>`
-   - `https://job-boards.greenhouse.io/<slug>` → `<slug>`
+1. **Build the multi-provider targets list.** Read `master_targets.csv` columns `company_name`, `ats_provider`, `ats_board_url` (already in scope from Step 0). Filter to rows where `ats_provider in {"greenhouse", "lever", "ashby", "smartrecruiters", "workday"}` AND `ats_board_url` is non-empty. For each kept row, derive the company slug from `ats_board_url` per provider:
+   - **Greenhouse:** `boards.greenhouse.io/<slug>`, `boards-api.greenhouse.io/v1/boards/<slug>`, or `job-boards.greenhouse.io/<slug>` → `<slug>`
+   - **Lever:** `jobs.lever.co/<slug>` → `<slug>`
+   - **Ashby:** `jobs.ashbyhq.com/<slug>` → `<slug>` (case-sensitive)
+   - **SmartRecruiters:** `jobs.smartrecruiters.com/<slug>` or `careers.smartrecruiters.com/<slug>` → `<slug>`
+   - **Workday:** `<tenant>.wd<N>.myworkdayjobs.com/<lang>/<site>` → use the FULL board_url (Workday providers parse tenant/dc/site from the URL itself)
 
-   Build a comma-separated string `<slugs_csv>`. If no rows qualify (e.g. fresh master_targets.csv with no `ats_provider` populated yet — typical until Phase 3 ships `/scout-detect`), still invoke `preview.py` with `<slugs_csv>=""` so a `runs.jsonl` line is appended (with 0 outcomes — Phase 5's regression-suspect logic needs the daily heartbeat). Print `[ATS-PREVIEW] No Greenhouse companies in master_targets.csv (Phase 3 will populate via /scout-detect).` to stdout for visibility.
+   Build a comma-separated string `<targets_csv>` where each entry is `slug|provider`. Example: `airbnb|greenhouse,spotify|lever,visa|smartrecruiters`. If no rows qualify (e.g. fresh master_targets.csv with no `ats_provider` populated yet), still invoke `preview.py` with `<targets_csv>=""` so a `runs.jsonl` line is appended (with 0 outcomes — Phase 5's regression-suspect logic needs the daily heartbeat). Print `[ATS-PREVIEW] No mappable companies in master_targets.csv (run /scout-detect to populate ats_provider columns).` to stdout for visibility.
+
+   **JSON-LD fallback (deferred to Phase 5):** Companies with `ats_provider == "none"` AND a populated `careers_url` would route to the `jsonld` virtual provider. Phase 4 ships `jsonld.py` and registers it in PROVIDERS, but the careers_url plumbing through `/scout-run` lands in Phase 5 alongside cross-source dedup. For now, `ats_provider=none` companies are silently skipped here.
 
 2. **Invoke the [ATS-PREVIEW] driver — ONE Bash call.**
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/preview.py "<data_dir>" "<TODAY>" "<slugs_csv>"
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/preview.py "<data_dir>" "<TODAY>" "<targets_csv>"
    ```
    This single process:
    - opens ONE `httpx.Client` (DSP-03 contract preserved);
-   - calls `dispatcher.fetch_all` ONCE;
-   - persists raw payloads from each `OK_WITH_RESULTS` outcome to `<data_dir>/daily/<TODAY>/ats_raw/greenhouse/<company>.json`;
-   - appends ONE line to `<data_dir>/runs.jsonl` via `runs_log.append_run` (DSP-07);
+   - calls `dispatcher.fetch_all` ONCE across all providers concurrently (per-provider semaphore caps from `config.json`);
+   - persists raw payloads from each `OK_WITH_RESULTS` outcome to `<data_dir>/daily/<TODAY>/ats_raw/<provider>/<company>.json`;
+   - appends ONE line to `<data_dir>/runs.jsonl` via `runs_log.append_run` (DSP-07) including `error: workday_auth_required` markers when Workday CSRF triggers (D-1);
    - prints a JSON summary to stdout with `outcome_count`, `wall_clock_seconds`, `per_provider_outcomes`, `per_company_provider`, `ok_with_results_companies`, and `raw_persisted` (a manifest of which raw files were written and how many listings each contains).
 
    Capture stdout — the SKILL parses it to render the [ATS-PREVIEW] block in Step 6.
 
-3. **Render in the report.** In Step 6 below, for any company in the `ok_with_results_companies` list from the JSON summary, read `<data_dir>/daily/<TODAY>/ats_raw/greenhouse/<company>.json` (each file has a `listings[]` array of canonical Listing dicts). Render under a new `### [ATS-PREVIEW] Greenhouse listings` section with this minimal block per listing:
+3. **Render in the report.** In Step 6 below, for any company in the `ok_with_results_companies` list from the JSON summary, read `<data_dir>/daily/<TODAY>/ats_raw/<provider>/<company>.json` (each file has a `listings[]` array of canonical Listing dicts). Render under a new `### [ATS-PREVIEW] ATS listings` section with this minimal block per listing:
    ```
    - **Company:** <company_name>
    - **Title:** <title>
    - **Apply:** <url>
    - **Posted:** <posted_date>
-   - **Source:** ats:greenhouse
-   - **[ATS-PREVIEW]** This is Phase 2 plumbing. Not scored, not tier-assigned. Phase 5 will hoist into Pass 1 with the +1 ATS bump.
+   - **Source:** ats:<provider>     # <provider> is greenhouse, lever, ashby, smartrecruiters, or workday
+   - **[ATS-PREVIEW]** This is Phase 2-4 plumbing. Not scored, not tier-assigned. Phase 5 will hoist into Pass 1 with the +1 ATS bump.
    ```
    The existing A/B/C tier blocks in Step 6 are unchanged — this is a NEW section appended after the existing Honest notes section.
 

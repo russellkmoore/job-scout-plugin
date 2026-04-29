@@ -388,12 +388,15 @@ def aggregate_outcomes(
             counts["ok_zero"] += 1
         else:
             counts["error"] += 1
-        per_cp[f"{o.company_slug}|{o.provider}"] = {
+        cp_record: Dict[str, Any] = {
             "outcome": o.outcome.value,
             "listing_count": len(o.listings),
             "http_status": o.http_status,
             "elapsed_seconds": round(o.elapsed_seconds, 3),
         }
+        if o.error:
+            cp_record["error"] = o.error
+        per_cp[f"{o.company_slug}|{o.provider}"] = cp_record
         if o.listings:
             per_pl.setdefault(o.provider, []).extend(L.to_dict() for L in o.listings)
     return per_provider, per_cp, per_pl

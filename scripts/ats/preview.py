@@ -78,18 +78,18 @@ def run_preview(
     today: str,
     slugs: List[str],
     provider: str = "greenhouse",
+    targets: List[Tuple[str, str]] = None,
 ) -> Dict[str, Any]:
-    """Run a single Phase 2 [ATS-PREVIEW] cycle and return the summary dict.
+    """Run a single Phase 4 [ATS-PREVIEW] cycle and return the summary dict.
 
     Args:
         data_dir: absolute path; caller has already expanded ~.
         today:    ISO date string (e.g. "2026-04-28") — already validated by SKILL.
-        slugs:    list of Greenhouse company slugs from master_targets.csv
-                  (already filtered to ats_provider == "greenhouse" + non-empty
-                  ats_board_url; slug derived from ats_board_url path tail).
-        provider: hardcoded "greenhouse" in Phase 2 — kept as a parameter so
-                  Phase 4 can extend with the other 4 providers without
-                  changing the function signature.
+        slugs:    list of company slugs (LEGACY — only when targets is None).
+                  Used with `provider` arg for backward compat.
+        provider: provider name to use with `slugs` (LEGACY — default greenhouse).
+        targets:  list of (slug, provider) tuples — preferred multi-provider input.
+                  When provided, slugs+provider are ignored.
 
     Returns: a dict suitable for json.dump to stdout (the SKILL reads it
              to render the [ATS-PREVIEW] block in Step 6).
@@ -122,7 +122,10 @@ def run_preview(
     ats_raw_dir = os.path.join(data_dir, "daily", today, "ats_raw")
 
     # Build targets list. Empty input is fine — fetch_all returns [].
-    targets: List[Tuple[str, str]] = [(slug, provider) for slug in slugs if slug]
+    # Prefer the explicit `targets` arg when provided (multi-provider routing).
+    # Fall back to legacy slugs+provider when targets is None (Phase 2 callers).
+    if targets is None:
+        targets = [(slug, provider) for slug in slugs if slug]
 
     # ONE fetch_all call. fetch_all instantiates and closes the httpx.Client
     # internally (DSP-03). We measure wall-clock around THIS line — that's
@@ -193,37 +196,52 @@ if __name__ == "__main__":
     # --help / --version smoke flags (verify-time sanity)
     if len(sys.argv) >= 2 and sys.argv[1] in ("-h", "--help"):
         print(
-            "Usage: python3 scripts/ats/preview.py <data_dir> <TODAY> <slugs_csv>\n"
+            "Usage: python3 scripts/ats/preview.py <data_dir> <TODAY> <targets_csv>\n"
             "\n"
-            "Run a single Phase 2 [ATS-PREVIEW] cycle for /scout-run Step 2.5.\n"
+            "Run a single [ATS-PREVIEW] cycle for /scout-run Step 2.5.\n"
             "ONE process -> ONE fetch_all -> ONE httpx.Client -> ONE runs.jsonl append.\n"
             "\n"
             "Args:\n"
-            "  <data_dir>   absolute path to user's data dir (~ already expanded by caller).\n"
-            "  <TODAY>      ISO date string for today's run (e.g. 2026-04-28).\n"
-            "  <slugs_csv>  comma-separated Greenhouse company slugs.\n"
-            "               Empty string is OK -- runs the empty-targets path\n"
-            "               (still appends a runs.jsonl line with 0 outcomes).\n"
+            "  <data_dir>     absolute path to user's data dir (~ already expanded by caller).\n"
+            "  <TODAY>        ISO date string for today's run (e.g. 2026-04-28).\n"
+            "  <targets_csv>  comma-separated targets. Each entry is `slug|provider`\n"
+            "                 (e.g. `airbnb|greenhouse,spotify|lever,visa|smartrecruiters`).\n"
+            "                 Bare `slug` (no pipe) defaults to provider=greenhouse for\n"
+            "                 Phase 2 backward compat. Empty string is OK -- runs the\n"
+            "                 empty-targets path (still appends 0-outcome runs.jsonl line).\n"
         )
         sys.exit(0)
     if len(sys.argv) >= 2 and sys.argv[1] == "--version":
-        print("preview.py: Phase 2 DSP-10 driver, v0.4")
+        print("preview.py: Phase 4 multi-provider driver, v0.4")
         sys.exit(0)
 
     if len(sys.argv) < 4:
         print(
-            "Usage: python3 scripts/ats/preview.py <data_dir> <TODAY> <slugs_csv>",
+            "Usage: python3 scripts/ats/preview.py <data_dir> <TODAY> <targets_csv>",
             file=sys.stderr,
         )
         sys.exit(1)
 
     data_dir = os.path.expanduser(sys.argv[1])
     today = sys.argv[2]
-    slugs_csv = sys.argv[3]
-    slugs = [s.strip() for s in slugs_csv.split(",") if s.strip()]
+    targets_csv = sys.argv[3]
+    targets: List[Tuple[str, str]] = []
+    for entry in targets_csv.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        if "|" in entry:
+            slug, prov = entry.split("|", 1)
+            slug = slug.strip()
+            prov = prov.strip() or "greenhouse"
+            if slug:
+                targets.append((slug, prov))
+        else:
+            # Bare slug — Phase 2 backward compat (greenhouse default)
+            targets.append((entry, "greenhouse"))
 
     try:
-        summary = run_preview(data_dir, today, slugs)
+        summary = run_preview(data_dir, today, slugs=[], targets=targets)
     except FileNotFoundError:
         sys.exit(2)
 
