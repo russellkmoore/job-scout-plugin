@@ -69,6 +69,7 @@ if SCRIPTS_DIR not in sys.path:
 # already handles the httpx ImportError block — preview.py inherits that
 # error reporting by importing fetch_all (which lives in dispatcher.py).
 from ats.dispatcher import fetch_all, aggregate_outcomes  # noqa: E402
+from ats.normalize import apply_filters  # noqa: E402  # PRV-06/07/08, STR-03
 from ats.runs_log import append_run, RunOutcome  # noqa: E402
 
 
@@ -130,7 +131,20 @@ def run_preview(
     outcomes = fetch_all(targets, config_path)
     wall_clock = time.monotonic() - t0
 
-    # Persist raw payloads from the SAME outcomes (no second fetch).
+    # PRV-06 / PRV-07 / PRV-08 / STR-03: post-fetch filtering.
+    # Drops stale (>60d default; per-provider overridable), collapses
+    # intra-source regional duplicates, removes evergreen titles. Mutates
+    # only OK_WITH_RESULTS outcomes; OK_ZERO and ERROR pass through.
+    # Load ats config — fall back to apply_filters defaults on read failure.
+    ats_cfg: Dict[str, Any] = {}
+    try:
+        with open(config_path, "r", encoding="utf-8") as _cf:
+            ats_cfg = json.load(_cf).get("ats", {}) or {}
+    except (OSError, json.JSONDecodeError):
+        pass  # apply_filters uses sensible defaults
+    outcomes = apply_filters(outcomes, config=ats_cfg)
+
+    # Persist raw payloads from the SAME (now filtered) outcomes.
     raw_persisted: Dict[str, int] = {}
     ok_companies: List[str] = []
     for o in outcomes:
