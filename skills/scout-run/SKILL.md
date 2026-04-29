@@ -107,6 +107,45 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
 
 ---
 
+## Step 2b: Lazy inline detection (for unmapped companies)
+
+**What this is:** Phase 3 closes the bootstrap gap for [ATS-PREVIEW] (Step 2.5 below). For any company in today's `companies_per_day` slate where `ats_provider` is empty in `master_targets.csv`, this step calls `scripts/ats/detect.py detect-one` to attempt provider detection. Confirmed hits flip the company into Step 2.5's [ATS-PREVIEW] eligibility (the next /scout-run picks them up). Misses are cached as `ats_provider="none"` so we do not re-probe on subsequent runs (DET-04).
+
+**Pre-condition:** Step 2 (Pass 1 company-first deep-dive) has already selected `companies_per_day` companies and you have their `company_name` values in scope from `master_targets.csv`.
+
+**Non-blocking constraint (locked):** Detection failures (network errors, all providers return NOT_FOUND, etc.) MUST NOT abort the run. The run continues with `ats_provider="none"` for the failing company. This is the trust-on-zero principle locally applied — the daily report is more valuable than a 100% detection success rate.
+
+1. **Filter to unmapped companies.** From the slate selected in Step 2, identify companies where the `ats_provider` column in `master_targets.csv` is empty (NOT `"manual"`, NOT `"none"`, NOT a provider name — literally empty string or missing). These are the only candidates for lazy inline detection.
+
+2. **For each unmapped company, call `detect-one` — ONE Bash call per company:**
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/detect.py detect-one \
+     "<company_slug>" \
+     --name "<company_name>" \
+     --data-dir "<data_dir>"
+   ```
+   Where `<company_slug>` is derived from `<company_name>` via simple normalization: lowercase, replace spaces with hyphens, strip apostrophes, strip common legal suffixes (`inc`, `corp`, `llc`, `ltd`, `co`, `company`, `the`), keep only alphanumeric + hyphen. Example: "Airbnb, Inc." -> `airbnb`; "The Trade Desk" -> `trade-desk`.
+
+   Capture stdout. The LAST line is a JSON dict with keys: `company_slug`, `company_name`, `provider`, `status`, `board_url`, `confidence`, `name_match_score`, `evidence`.
+
+3. **Apply the result to in-memory state — do NOT write to master_targets.csv yet.**
+   - `status == "CONFIRMED"` -> record `(company_name, ats_provider=<provider>, ats_board_url=<board_url>, ats_slug_confidence=<confidence>, last_ats_hit_date=<TODAY>)` in a memory dict for Step 8.
+   - `status == "BORDERLINE"` -> record `(company_name, ats_provider=<provider>, ats_board_url=<board_url>)` only (leave ats_slug_confidence empty — borderline needs review). detect.py already appended a row to `<data_dir>/ats_detection_review.csv`; no skill-side action needed.
+   - `status == "NOT_FOUND"` -> record `(company_name, ats_provider="none")`. Use the literal string `none` — this is the D-01 sentinel (locked decision).
+   - `status == "ERROR"` or **non-zero exit code** -> record `(company_name, ats_provider="none")` AND print a stderr line: `WARNING: lazy inline detect failed for <company_name>: <reason from JSON evidence or stderr>`. Continue to the next company. **DO NOT ABORT THE RUN.**
+
+4. **Defer write-back to Step 8.** Master_targets.csv is updated ONCE at the end of the run (existing Step 8: Update master_targets.csv). At that point, the in-memory dict from Step 2b is merged with the existing CSV rows and a single `csv.DictWriter` write replays. This avoids the partial-write hazard if `/scout-run` is interrupted between Step 2b and Step 8.
+
+**Failure modes detect.py already handles (no skill-side handling needed):**
+- rapidfuzz not installed -> `detect-one` exits 1 with install hint; Step 2b prints the stderr WARNING above and continues with `ats_provider="none"` for that company.
+- All providers return NOT_FOUND -> JSON `status="NOT_FOUND"`; cached as `ats_provider="none"` (per DET-04).
+- HTTP 200 + 0 jobs -> `detect-one` returns BORDERLINE with `note=zero_open_roles` in evidence; Step 2b records `ats_provider=<provider>` and `ats_board_url` so [ATS-PREVIEW] (Step 2.5) picks it up next run; ats_slug_confidence stays empty.
+- Network timeout -> JSON `status="ERROR"`; cached as `ats_provider="none"` for THIS run only.
+
+**No telemetry append from Step 2b.** Per Phase 3 design (Pitfall 6 in 03-RESEARCH.md), the lazy inline path does NOT append per-company detection lines to `runs.jsonl`. Only `/scout-detect detect-batch` writes detection telemetry. The existing run line that `/scout-run` already appends (via Step 2.5's preview.py) covers the run-level summary.
+
+---
+
 ## Step 2.5: [ATS-PREVIEW] Pass 1 (Greenhouse only) — additive
 
 **What this is:** Phase 2 of the v0.4 ATS-first migration ships a structured ATS query path (Provider Protocol + dispatcher + runs.jsonl observability) and wires Greenhouse-only fetches into `/scout-run` ADDITIVELY. The existing 3-pass flow above (Pass 1 / Pass 2 / Pass 3) still runs and still produces output. This block adds an `[ATS-PREVIEW]` slice — its listings are tagged in Step 6's report so they're visible without changing scoring or tier assignment. **Phase 5 will replace the old flow; until then, both run.** Do not interpret the [ATS-PREVIEW] tag as scoring authority.

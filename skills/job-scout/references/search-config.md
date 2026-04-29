@@ -25,7 +25,7 @@ If a run produces no A-tier matches, the report says so. The scout does not prom
 | 2 | Built In Seattle, Wellfound, YC Work at a Startup, HN "Who is hiring" | **~25%** | Curated boards with niches LinkedIn buries (founder/startup, local, technical leadership). |
 | 3 | LinkedIn keyword search | **~15%, last** | Lowest signal. Recycled listings, AI-driven irrelevance. Useful as a sweep, not a primary source. |
 
-**Budget formula** (in `commands/scout-run.md`):
+**Budget formula** (in `skills/scout-run/SKILL.md`):
 - Pass 1 = `round(0.60 * max_listings_per_run)`
 - Pass 2 = `round(0.25 * max_listings_per_run)`
 - Pass 3 = `max_listings_per_run − (Pass 1 + Pass 2)`
