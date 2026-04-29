@@ -339,6 +339,16 @@ def test_borderline_appended_to_review_csv(tmp_data_dir, monkeypatch):
     assert airbnb_review is not None, "Airbnb should appear in review CSV"
     assert airbnb_review.get("ats_board_url"), "ats_board_url should be populated in review row"
 
+    # ROADMAP SC-1: borderline ats_slug_confidence visible (0.70-0.94 range), not empty
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    airbnb_row = next(r for r in rows if r["company_name"] == "Airbnb")
+    assert airbnb_row["ats_slug_confidence"] == "0.78", (
+        f"ROADMAP SC-1: borderline confidence should be visible (0.78), got "
+        f"{airbnb_row['ats_slug_confidence']!r}"
+    )
+
 
 def test_zero_jobs_borderline_writes_provider_but_empty_confidence(tmp_data_dir, monkeypatch, mock_greenhouse_zero_jobs):
     """D-02 / DET-05: 200 + 0 jobs -> ats_provider set, ats_slug_confidence empty, review CSV has zero_open_roles."""

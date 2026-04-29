@@ -344,13 +344,18 @@ def _should_skip(
 def _confidence_to_csv(result: DetectionResult) -> str:
     """Map DetectionResult to the ats_slug_confidence CSV value.
 
-    CONFIRMED  -> str(round(confidence, 4))  e.g. "0.97"
-    BORDERLINE -> ""  (review pending; user fills in after ats_detection_review.csv review)
+    CONFIRMED  -> str(round(confidence, 4))  e.g. "0.97" (1.0 typical for two-factor pass)
+    BORDERLINE -> str(round(confidence, 4))  e.g. "0.78" (0.70-0.94 fuzzy gray band)
+                  EXCEPT zero_open_roles edge case (D-02): empty (no job data → no name to score)
     NOT_FOUND  -> ""  (no confidence to store)
     ERROR      -> ""  (detection did not complete)
     manual     -> "manual"  (only written by user; detect.py never writes this)
     """
     if result.status == DetectionStatus.CONFIRMED:
+        return str(round(result.confidence, 4))
+    if result.status == DetectionStatus.BORDERLINE:
+        if result.evidence.get("note") == "zero_open_roles":
+            return ""
         return str(round(result.confidence, 4))
     return ""
 
@@ -718,10 +723,11 @@ def _cmd_detect_batch(args: List[str]) -> None:
 
         elif gated.status == DetectionStatus.BORDERLINE:
             borderline_count += 1
-            # Write provider + board_url; leave ats_slug_confidence EMPTY (review pending)
+            # ROADMAP SC-1: write fuzzy score (0.70-0.94) for normal borderline; empty for zero_open_roles (D-02).
+            # _confidence_to_csv() handles the discriminator on evidence.note.
             row["ats_provider"] = gated.provider
             row["ats_board_url"] = gated.board_url or ""
-            row["ats_slug_confidence"] = ""  # explicit: review pending
+            row["ats_slug_confidence"] = _confidence_to_csv(gated)
             # Do NOT set last_ats_hit_date for borderline (no confirmed detection)
 
             per_company_results[slug] = {
