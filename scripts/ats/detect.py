@@ -453,6 +453,12 @@ def _detect_one_company(
     }
 
     for provider_name, provider in PROVIDERS.items():
+        # D-3 (locked Phase 4 decision): skip providers with empty
+        # BOARD_URL_PATTERNS. jsonld.py has BOARD_URL_PATTERNS=[] — it is
+        # a fallback, not a detectable ATS. Probing it would always return
+        # NOT_FOUND and waste a network call.
+        if not getattr(provider, "BOARD_URL_PATTERNS", None):
+            continue
         # Acquire per-provider semaphore (detect-specific, not shared with dispatcher)
         sem = _DET_SEMAPHORES.get(provider_name)
         if sem is None:

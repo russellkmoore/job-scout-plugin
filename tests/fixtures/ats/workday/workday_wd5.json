@@ -1,0 +1,21 @@
+{
+  "total": 448,
+  "jobPostings": [
+    {
+      "title": "Account Executive",
+      "externalPath": "/job/JPNOsaka/Account-Executive_JR-0101360",
+      "locationsText": "Osaka, Japan",
+      "postedOn": "Posted 5 Days Ago",
+      "remoteType": "Onsite",
+      "bulletFields": ["JR-0101360"]
+    },
+    {
+      "title": "Senior Engineering Manager",
+      "externalPath": "/job/USCA-Pleasanton/Senior-Engineering-Manager_JR-0101441",
+      "locationsText": "Pleasanton, CA",
+      "postedOn": "Posted 10 Days Ago",
+      "remoteType": "Hybrid",
+      "bulletFields": ["JR-0101441"]
+    }
+  ]
+}

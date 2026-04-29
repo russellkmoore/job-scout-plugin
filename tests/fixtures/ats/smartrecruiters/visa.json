@@ -1,0 +1,36 @@
+{
+  "list": {
+    "content": [
+      {
+        "id": "100sr-aaa-bbb",
+        "name": "Product Manager",
+        "company": {"name": "Visa"},
+        "releasedDate": "2026-03-15T10:23:45.000Z",
+        "location": {"city": "San Francisco", "region": "CA", "country": "US", "remote": false},
+        "department": {"label": "Product"},
+        "typeOfEmployment": {"label": "Full-time"},
+        "ref": "https://jobs.smartrecruiters.com/Visa/100sr-aaa-bbb"
+      }
+    ],
+    "totalFound": 1,
+    "offset": 0,
+    "limit": 100
+  },
+  "detail": {
+    "id": "100sr-aaa-bbb",
+    "name": "Product Manager",
+    "company": {"name": "Visa"},
+    "releasedDate": "2026-03-15T10:23:45.000Z",
+    "location": {"city": "San Francisco", "region": "CA", "country": "US"},
+    "department": {"label": "Product"},
+    "typeOfEmployment": {"label": "Full-time"},
+    "ref": "https://jobs.smartrecruiters.com/Visa/100sr-aaa-bbb",
+    "jobAd": {
+      "sections": {
+        "jobDescription": {
+          "text": "<p>Product manager for cross-border payments.</p>"
+        }
+      }
+    }
+  }
+}

@@ -313,10 +313,12 @@ def test_borderline_appended_to_review_csv(tmp_data_dir, monkeypatch):
     # Patch _apply_name_gate to return the pre-cooked BORDERLINE directly
     monkeypatch.setattr(detect_module, "_apply_name_gate", lambda raw, name, **kw: borderline_result)
 
-    # Build a fake provider that returns any BORDERLINE (gate is patched anyway)
+    # Build a fake provider that returns any BORDERLINE (gate is patched anyway).
+    # BOARD_URL_PATTERNS must be non-empty so the D-3 guard in detect.py does NOT
+    # skip this provider (D-3 skips providers with empty patterns, e.g. jsonld).
     class MockBorderlineProvider:
         NAME = "greenhouse"
-        BOARD_URL_PATTERNS = []
+        BOARD_URL_PATTERNS = [r"^https?://boards-api\.greenhouse\.io/v1/boards/([^/]+)"]
 
         def detect(self, company_slug, name, client):
             return borderline_result
