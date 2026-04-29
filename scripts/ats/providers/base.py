@@ -77,6 +77,11 @@ class FetchResult:
     were built from — persisted to ats_raw/ for SC-2 inspectability.
     `http_status` is the HTTP status code from the underlying request
     (200, 404, 401, etc.; -1 if no response was received).
+    `auth_required` signals that the provider detected a CSRF or session
+    authentication barrier (PRV-05 / D-1). When True, the dispatcher writes
+    `workday_auth_required` reason to runs.jsonl instead of generic ERROR.
+    Default False — all existing providers (greenhouse) inherit without
+    changing call sites.
     """
 
     provider: str
@@ -84,6 +89,12 @@ class FetchResult:
     listings: List["Listing"]
     raw: List[Dict[str, Any]]
     http_status: int
+    # PRV-05 / D-1: Workday CSRF/auth-required signal. True when provider
+    # receives 401/403 with CSRF/session markers in body. Dispatcher logs
+    # this as "workday_auth_required" reason in runs.jsonl rather than
+    # generic ERROR. Default False — all existing providers (greenhouse)
+    # inherit without changing call sites.
+    auth_required: bool = False
 
 
 @runtime_checkable
