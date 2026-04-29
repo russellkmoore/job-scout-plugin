@@ -100,6 +100,56 @@ If Pass 1 finishes under-budget, do NOT roll the leftover budget into Pass 2 or 
 
 ---
 
+## Step 2.5: [ATS-PREVIEW] Pass 1 (Greenhouse only) — additive
+
+**What this is:** Phase 2 of the v0.4 ATS-first migration ships a structured ATS query path (Provider Protocol + dispatcher + runs.jsonl observability) and wires Greenhouse-only fetches into `/scout-run` ADDITIVELY. The existing 3-pass flow above (Pass 1 / Pass 2 / Pass 3) still runs and still produces output. This block adds an `[ATS-PREVIEW]` slice — its listings are tagged in Step 6's report so they're visible without changing scoring or tier assignment. **Phase 5 will replace the old flow; until then, both run.** Do not interpret the [ATS-PREVIEW] tag as scoring authority.
+
+**Pre-conditions** (Phase 1 already guarantees):
+- `<data_dir>/runs.jsonl` exists (created by `validate_data.py:validate_runs_log` — Step 0 step 2 above already ran).
+- `<data_dir>/daily/<TODAY>/ats_raw/` exists (created by `validate_data.py ensure-today` — Step 0 step 4 above already ran).
+
+**Architectural invariant — ONE process per /scout-run.** Per DSP-03 (locked), the dispatcher uses ONE shared `httpx.Client` per run. To honor that at the SKILL boundary, all three responsibilities — invoke the dispatcher, persist raw payloads, append `runs.jsonl` — live inside `scripts/ats/preview.py` and the SKILL invokes it with EXACTLY ONE Bash call.
+
+1. **Build the slug list.** Read `master_targets.csv` columns `company_name`, `ats_provider`, `ats_board_url` (already in scope from Step 0). Filter to rows where `ats_provider == "greenhouse"` AND `ats_board_url` is non-empty. For each kept row, derive the company slug from `ats_board_url`:
+   - `https://boards.greenhouse.io/<slug>` → `<slug>`
+   - `https://boards-api.greenhouse.io/v1/boards/<slug>` → `<slug>`
+   - `https://job-boards.greenhouse.io/<slug>` → `<slug>`
+
+   Build a comma-separated string `<slugs_csv>`. If no rows qualify (e.g. fresh master_targets.csv with no `ats_provider` populated yet — typical until Phase 3 ships `/scout-detect`), still invoke `preview.py` with `<slugs_csv>=""` so a `runs.jsonl` line is appended (with 0 outcomes — Phase 5's regression-suspect logic needs the daily heartbeat). Print `[ATS-PREVIEW] No Greenhouse companies in master_targets.csv (Phase 3 will populate via /scout-detect).` to stdout for visibility.
+
+2. **Invoke the [ATS-PREVIEW] driver — ONE Bash call.**
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/ats/preview.py "<data_dir>" "<TODAY>" "<slugs_csv>"
+   ```
+   This single process:
+   - opens ONE `httpx.Client` (DSP-03 contract preserved);
+   - calls `dispatcher.fetch_all` ONCE;
+   - persists raw payloads from each `OK_WITH_RESULTS` outcome to `<data_dir>/daily/<TODAY>/ats_raw/greenhouse/<company>.json`;
+   - appends ONE line to `<data_dir>/runs.jsonl` via `runs_log.append_run` (DSP-07);
+   - prints a JSON summary to stdout with `outcome_count`, `wall_clock_seconds`, `per_provider_outcomes`, `per_company_provider`, `ok_with_results_companies`, and `raw_persisted` (a manifest of which raw files were written and how many listings each contains).
+
+   Capture stdout — the SKILL parses it to render the [ATS-PREVIEW] block in Step 6.
+
+3. **Render in the report.** In Step 6 below, for any company in the `ok_with_results_companies` list from the JSON summary, read `<data_dir>/daily/<TODAY>/ats_raw/greenhouse/<company>.json` (each file has a `listings[]` array of canonical Listing dicts). Render under a new `### [ATS-PREVIEW] Greenhouse listings` section with this minimal block per listing:
+   ```
+   - **Company:** <company_name>
+   - **Title:** <title>
+   - **Apply:** <url>
+   - **Posted:** <posted_date>
+   - **Source:** ats:greenhouse
+   - **[ATS-PREVIEW]** This is Phase 2 plumbing. Not scored, not tier-assigned. Phase 5 will hoist into Pass 1 with the +1 ATS bump.
+   ```
+   The existing A/B/C tier blocks in Step 6 are unchanged — this is a NEW section appended after the existing Honest notes section.
+
+**Failure modes the dispatcher already handles (no skill-side handling needed):**
+- 404 / unknown slug → bucketed as ERROR in runs.jsonl with the http_status; the company silently does not contribute to [ATS-PREVIEW]. Phase 5 surfaces "ATS regression suspect" warnings from runs.jsonl.
+- 200 + 0 jobs → bucketed as OK_ZERO; Phase 5 surfaces this distinguishably from ERROR.
+- Network failure / timeout → bucketed as ERROR with the exception class+message in runs.jsonl.
+- Provider mapper raises ValueError on missing required field → caught by dispatcher's worker wrapper; bucketed as ERROR; the bad job is in raw[] for replay but not in listings[].
+- `<data_dir>/config.json` missing → preview.py exits 2 with a printed message; the SKILL surfaces this as a setup error and skips Steps 3/4/5/6 of the [ATS-PREVIEW] block (the Pass 2/Pass 3 / report flow continues unaffected).
+
+---
+
 ## Step 3: Pass 2 — Other job boards (≈25% of budget)
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/job-scout/references/job-boards.md` for per-board URL patterns, filters, and parsing gotchas.
