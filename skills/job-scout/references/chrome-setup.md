@@ -40,10 +40,34 @@ LinkedIn deliberately omits the job description body from the initial DOM. To ge
 1. Navigate to the listing URL (`linkedin.com/jobs/view/<id>` form).
 2. `javascript_tool` → `window.scrollTo(0, 800)` to push the lazy-load triggers into view.
 3. Wait 3–5 seconds for the async render. Don't skip this — the request is fired by scroll position and resolves async.
-4. `find` the "...more" button/link in the description block, then click it to expand.
-5. THEN call `get_page_text` — the full JD will be present in the returned text.
+4. **Multi-selector "...more" expansion (CON-12 — resilience).** LinkedIn A/B-tests
+   the description-expander button across at least three variants. Try them in
+   order, stopping after the first that's found:
+   1. Primary: `find: "...more"`
+   2. Secondary: `find: "Show more"` (LinkedIn A/B test variant)
+   3. Tertiary: `aria-label="Expand description"` (accessibility-attribute variant)
+
+   Click the first match, then call `get_page_text` to read the expanded JD.
+
+5. **Retry on short response (CON-12).** If `get_page_text` returns less than
+   500 characters after the click sequence, the page lazy-load may not have
+   settled. Wait an additional 3 seconds and call `get_page_text` ONE more time.
+   If the second attempt is still under 500 characters, log
+   `jd_extraction_failed: true` for this listing (carried in the runs.jsonl
+   line via the stats.json passthrough — see scout-run/SKILL.md Step 4 lazy-load
+   handling) and CONTINUE — JD extraction is non-blocking. The listing keeps
+   whatever partial description was captured.
+
+6. **Failure telemetry.** JD extraction failures are recorded in `runs.jsonl`
+   alongside dispatcher telemetry so trend regression is visible. The Honest
+   notes block in scout-run Step 6 surfaces the count if elevated.
 
 If you skip *any* step you'll get only the header metadata (title, company, salary, location). This applies to every LinkedIn listing, including ones LinkedIn marks as "Promoted by hirer."
+
+> **Rate-limit cross-reference (CON-11).** During enrichment runs that visit
+> many LinkedIn pages in sequence, `scout-run/SKILL.md` Step 5 enforces a
+> 10–15 second pause after every 5th LinkedIn navigation. This rule is enforced
+> in the SKILL flow, not here.
 
 Career pages and ATS boards (Greenhouse, Lever, Workday, Ashby) generally return full JDs on first navigation — no scroll-and-expand dance required.
 
