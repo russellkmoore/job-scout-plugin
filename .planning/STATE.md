@@ -34,13 +34,11 @@ progress:
 
 ## Current Position
 
-Phase: 5 (Cross-source dedup + tier bump + enrich + scoring/tracker cleanup) — EXECUTING
-Plan: 1 of 5
-**Phase:** 4 — Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD fallback + filtering layer — **COMPLETE**
-**Plan:** 5 of 5 complete (04-01 scaffolding; 04-02 Lever+Ashby; 04-03 SR+Workday; 04-04 JSON-LD; 04-05 integration)
-**Status:** Executing Phase 5
+**Phase:** 5 — Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup — **COMPLETE**
+**Plan:** 5 of 5 complete (05-01 Wave 0 tests; 05-02 dedupe.py; 05-03 tracker_utils surgery; 05-04 runs_log.py telemetry; 05-05 SKILL.md flow rewrite + JSON-LD inheritance + 3 doc fixes)
+**Status:** Phase 5 verified (16/16 must-haves on first verifier pass — no gap closure needed)
 
-**Next phase:** 5 — Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup (16 reqs)
+**Next phase:** 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs — final phase, milestone bar verification)
 
 **Progress:** 4/6 phases complete
 
@@ -66,7 +64,13 @@ Plan: 1 of 5
     [x] Plan 04-04 — JSON-LD virtual provider with BOARD_URL_PATTERNS=[] (STR-01)
     [x] Plan 04-05 — Filter helpers (filter_stale + collapse_regional_dupes + filter_evergreen + apply_filters), PROVIDERS=6 registry wiring, dispatcher auth_required→runs.jsonl, preview.py wire-in, templates/config.json ats section (PRV-06..09, STR-03)
     [x] Inline gap closure (commit 5b236a5) — preview.py multi-provider targets + SKILL.md Step 2.5 routes all 5 ATS providers + dispatcher.aggregate_outcomes propagates error field to runs.jsonl (closes Gap 1 SC#1+#3 + Gap 2 SC#2)
-[ ] Phase 5 — Cross-source dedup + tier bump + enrich + scoring/tracker cleanup (16 reqs)
+[x] Phase 5 — Cross-source dedup + tier bump + enrich + scoring/tracker cleanup (16 reqs) — 5/5 plans complete (passed first verifier pass — no inline gap closure needed)
+    [x] Plan 05-01 — Wave 0 RED tests + 3 fixture sets (linkedin_candidates_sample, ats_raw_sample/, runs_jsonl_history) — 23 tests scaffolded
+    [x] Plan 05-02 — scripts/ats/dedupe.py (run_cross_source_dedup, compute_ats_tier_bump, derive_linkedin_slug, is_enrichment_candidate) — DDP-01..05
+    [x] Plan 05-03 — scripts/tracker_utils.py surgery: split extract_job_id into extract_linkedin_job_id + extract_dedup_key (CON-12), rename skipped_stale local var only — dict key stays "flagged_stale" Pitfall 6 (CON-13), 4-tuple load_tracker + write-through user-extra-headers preserves user xlsx columns Pitfall 2 (CON-15/CON-20)
+    [x] Plan 05-04 — scripts/ats/runs_log.py telemetry kwargs (D-2): dedup_decisions + regression_suspects + pass2_board_status; new CLI subcommands regression-suspects + pass2-board-broken (Pitfall 5 slicing encapsulated)
+    [x] Plan 05-05 — skills/scout-run/SKILL.md flow rewrite (Step 2.5 JSON-LD routing via career_page_url closes Phase 4 deferral, Step 4.5 dedup hook, Step 5 enrich-then-tier per D-1, Step 6 regression-suspects/pass2-board-broken in Honest notes) + 3 doc fixes (scoring-rubric CON-09, search-config CON-10, chrome-setup CON-11/12 + DDP-08)
+    [recovery] Plan 05-05 worktree was based on wrong commit (de48749 vs 2bd8f50); 3 commits cherry-picked onto main with 2 conflicts resolved (schema.py stale comment + scout-run/SKILL.md JSON-LD prose) — final state verified 60/60 tests pass
 [ ] Phase 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs)
 ```
 
