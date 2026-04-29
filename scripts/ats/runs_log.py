@@ -98,6 +98,8 @@ def append_run(
     dedup_decisions: Optional[List[Dict[str, Any]]] = None,
     regression_suspects: Optional[List[Dict[str, Any]]] = None,
     pass2_board_status: Optional[Dict[str, int]] = None,
+    # Phase 6 D-1 addition — non-breaking; callers that don't pass it get None
+    ab_tier_counts: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     """Append one JSON line to runs.jsonl.
 
@@ -124,6 +126,10 @@ def append_run(
             Only emitted to line dict when non-None and non-empty.
         pass2_board_status: Phase 5 D-2 — {board_name: result_count} for
             each Pass-2 board queried this run.
+            Only emitted to line dict when non-None and non-empty.
+        ab_tier_counts: Phase 6 D-1 — {"ats": N, "linkedin": M, "total_ab": N+M}.
+            Written after Step 5 enrich-then-tier in /scout-run.
+            Used by milestone-bar subcommand to compute 5-run rolling Pass-1 share.
             Only emitted to line dict when non-None and non-empty.
 
     Returns: the JSON-encoded line dict (also written to the file).
@@ -155,6 +161,8 @@ def append_run(
         line["regression_suspects"] = regression_suspects
     if pass2_board_status:
         line["pass2_board_status"] = pass2_board_status
+    if ab_tier_counts:
+        line["ab_tier_counts"] = ab_tier_counts
 
     # Append-only: open in 'a' mode, write the JSON line + newline, flush.
     # Never read the file. Never rewrite. DSP-07 atomicity contract.
@@ -264,6 +272,85 @@ def _find_pass2_board_broken(
     ]
 
 
+def compute_milestone_bar(
+    lines: List[Dict[str, Any]],
+    lookback: int = 5,
+    pass1_share_target: float = 0.60,
+    wall_clock_target_seconds: float = 300.0,
+) -> Dict[str, Any]:
+    """OUT-07 — compute the v0.4 milestone bar from the last `lookback` runs.
+
+    D-1: pass1_share = avg(ats/(ats+linkedin) per run) across runs that have ab_tier_counts.
+         If NO run in the lookback window has ab_tier_counts -> pass1_share_pct is None.
+    D-2: wall_clock_avg = mean(wall_clock_seconds) across all runs in the window
+         (this is the dispatcher fetch_all duration only — NOT total /scout-run wall-clock,
+         per the locked decision).
+
+    Pitfall 6: ab_tier_counts is OPTIONAL on older runs.jsonl lines. Guard with .get(...).
+
+    Args:
+        lines: full list of parsed JSONL dicts (all runs).
+        lookback: how many of the most recent runs to examine (default 5).
+        pass1_share_target: fraction threshold for pass1_bar_met (default 0.60 = 60%).
+        wall_clock_target_seconds: seconds threshold for wall_clock_bar_met (default 300.0).
+
+    Returns:
+        {
+          "lookback_used": int,                  # min(lookback, len(lines))
+          "pass1_share_pct": float | None,       # None if ab_tier_counts absent on all runs
+          "wall_clock_avg_seconds": float,
+          "pass1_bar_met": bool,                 # >= pass1_share_target (False if None)
+          "wall_clock_bar_met": bool,            # <= wall_clock_target_seconds
+          "bar_met": bool,                       # both True
+          "runs_examined": [iso_timestamps],
+        }
+    """
+    recent = lines[-lookback:] if len(lines) >= lookback else lines
+    n = len(recent)
+    if n == 0:
+        return {
+            "lookback_used": 0,
+            "pass1_share_pct": None,
+            "wall_clock_avg_seconds": 0.0,
+            "pass1_bar_met": False,
+            "wall_clock_bar_met": False,
+            "bar_met": False,
+            "runs_examined": [],
+        }
+
+    # D-2: wall_clock_avg from existing wall_clock_seconds (always present per Phase 2 schema)
+    wall_clocks = [float(r.get("wall_clock_seconds", 0)) for r in recent]
+    wall_clock_avg = sum(wall_clocks) / n
+
+    # D-1: pass1_share = average of per-run (ats / (ats + linkedin)) ratios.
+    # Pitfall 6: silent skip on runs missing the field; None if all are missing.
+    pass1_shares: List[float] = []
+    for r in recent:
+        ab = r.get("ab_tier_counts")
+        if not ab:
+            continue
+        ats = int(ab.get("ats", 0))
+        linkedin = int(ab.get("linkedin", 0))
+        total = ats + linkedin
+        if total > 0:
+            pass1_shares.append(ats / total)
+
+    pass1_share_avg = (sum(pass1_shares) / len(pass1_shares)) if pass1_shares else None
+
+    pass1_bar_met = (pass1_share_avg is not None and pass1_share_avg >= pass1_share_target)
+    wall_clock_bar_met = wall_clock_avg <= wall_clock_target_seconds
+
+    return {
+        "lookback_used": n,
+        "pass1_share_pct": round(pass1_share_avg * 100, 1) if pass1_share_avg is not None else None,
+        "wall_clock_avg_seconds": round(wall_clock_avg, 1),
+        "pass1_bar_met": pass1_bar_met,
+        "wall_clock_bar_met": wall_clock_bar_met,
+        "bar_met": pass1_bar_met and wall_clock_bar_met,
+        "runs_examined": [r.get("timestamp") for r in recent],
+    }
+
+
 def _cmd_regression_suspects(args: List[str]) -> None:
     """regression-suspects <runs_log_path> [--lookback N] [--min-prior-ok N]
 
@@ -328,6 +415,35 @@ def _cmd_pass2_board_broken(args: List[str]) -> None:
     print(json.dumps(broken, indent=2))
 
 
+def _cmd_milestone_bar(args: List[str]) -> None:
+    """milestone-bar <runs_log_path> [--lookback N]
+
+    Reads runs.jsonl, calls compute_milestone_bar, prints JSON to stdout.
+    JSON is the LAST print per CONVENTIONS.md (machine-consumable as final line).
+    """
+    if not args:
+        print(
+            "Usage: runs_log.py milestone-bar <runs_log_path> [--lookback N]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    runs_log_path = os.path.expanduser(args[0])
+    lookback = 5
+    if "--lookback" in args:
+        lookback = int(args[args.index("--lookback") + 1])
+
+    if not os.path.isfile(runs_log_path):
+        print(json.dumps({"error": "runs.jsonl not found", "bar_met": False}))
+        return
+
+    with open(runs_log_path, "r", encoding="utf-8") as f:
+        lines = [json.loads(l) for l in f if l.strip()]
+
+    result = compute_milestone_bar(lines, lookback=lookback)
+    print(json.dumps(result, indent=2))
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python3 scripts/ats/runs_log.py <command> [args...]", file=sys.stderr)
@@ -338,6 +454,7 @@ if __name__ == "__main__":
         print("                        dedup_decisions, regression_suspects, pass2_board_status]}", file=sys.stderr)
         print("  regression-suspects <runs_log_path> [--lookback N] [--min-prior-ok N]", file=sys.stderr)
         print("  pass2-board-broken <runs_log_path> [--lookback N] [--min-zero-runs N]", file=sys.stderr)
+        print("  milestone-bar <runs_log_path> [--lookback N]", file=sys.stderr)
         sys.exit(1)
     cmd = sys.argv[1]
     if cmd == "append-run":
@@ -359,6 +476,8 @@ if __name__ == "__main__":
             dedup_decisions=stats.get("dedup_decisions"),
             regression_suspects=stats.get("regression_suspects"),
             pass2_board_status=stats.get("pass2_board_status"),
+            # Phase 6 D-1 passthrough — present in stats.json when SKILL.md passes it
+            ab_tier_counts=stats.get("ab_tier_counts"),
         )
         print(json.dumps({"appended": True, "line": line}, indent=2))
         sys.exit(0)
@@ -367,6 +486,9 @@ if __name__ == "__main__":
         sys.exit(0)
     elif cmd == "pass2-board-broken":
         _cmd_pass2_board_broken(sys.argv[2:])
+        sys.exit(0)
+    elif cmd == "milestone-bar":
+        _cmd_milestone_bar(sys.argv[2:])
         sys.exit(0)
     print(f"ERROR: Unknown command: {cmd}", file=sys.stderr)
     sys.exit(1)
