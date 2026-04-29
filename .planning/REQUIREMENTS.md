@@ -220,13 +220,13 @@ Every v1 requirement maps to exactly one phase in `.planning/ROADMAP.md`.
 | DDP-06 | Phase 5 | Complete |
 | DDP-07 | Phase 5 | Complete |
 | DDP-08 | Phase 5 | Complete |
-| OUT-01 | Phase 6 | Pending |
-| OUT-02 | Phase 6 | Pending |
-| OUT-03 | Phase 6 | Pending |
-| OUT-04 | Phase 6 | Pending |
-| OUT-05 | Phase 6 | Pending |
-| OUT-06 | Phase 6 | Pending |
-| OUT-07 | Phase 6 | Pending |
+| OUT-01 | Phase 6 | Complete |
+| OUT-02 | Phase 6 | Complete |
+| OUT-03 | Phase 6 | Complete |
+| OUT-04 | Phase 6 | Complete |
+| OUT-05 | Phase 6 | Complete |
+| OUT-06 | Phase 6 | Complete |
+| OUT-07 | Phase 6 | Complete |
 | STR-01 | Phase 4 | Complete |
 | STR-02 | Phase 3 | Complete |
 | STR-03 | Phase 4 | Complete |
@@ -246,12 +246,12 @@ Every v1 requirement maps to exactly one phase in `.planning/ROADMAP.md`.
 | CON-13 | Phase 5 | Complete |
 | CON-14 | Phase 5 | Complete |
 | CON-15 | Phase 5 | Complete |
-| CON-16 | Phase 6 | Pending |
-| CON-17 | Phase 6 | Pending |
-| CON-18 | Phase 6 | Pending |
-| CON-19 | Phase 6 | Pending |
+| CON-16 | Phase 6 | Complete |
+| CON-17 | Phase 6 | Complete |
+| CON-18 | Phase 6 | Complete |
+| CON-19 | Phase 6 | Complete |
 | CON-20 | Phase 5 | Complete |
-| CON-21 | Phase 6 | Pending |
+| CON-21 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 72 total (51 ATS feature + 21 concerns cleanup)

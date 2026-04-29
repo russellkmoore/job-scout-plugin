@@ -34,15 +34,15 @@ progress:
 
 ## Current Position
 
-Phase: 6 (Run summary + delete legacy + milestone close + version/PII/post-run cleanup) — EXECUTING
-Plan: 1 of 5
-**Phase:** 5 — Cross-source dedup + ATS tier bump + enrich-then-tier + scoring/tracker cleanup — **COMPLETE**
-**Plan:** 5 of 5 complete (05-01 Wave 0 tests; 05-02 dedupe.py; 05-03 tracker_utils surgery; 05-04 runs_log.py telemetry; 05-05 SKILL.md flow rewrite + JSON-LD inheritance + 3 doc fixes)
-**Status:** Executing Phase 6
+**Milestone:** v0.4 — ATS-first job sourcing — **CODE COMPLETE** 🎉
 
-**Next phase:** 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs — final phase, milestone bar verification)
+**Phase:** 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup — **COMPLETE**
+**Plan:** 5 of 5 complete (06-01 Wave 0 tests; 06-02 compute_milestone_bar + CLI; 06-03 doc/version cleanup; 06-04 scout-run flow integration; 06-05 phase-wide grep gate)
+**Status:** Phase 6 verified `human_needed` (11/12 automated checks pass — final 1/12 OUT-07 production threshold requires 5 real /scout-run invocations to compute pass1_share against ROADMAP's ≥60% target)
 
-**Progress:** 4/6 phases complete
+**Next:** 5 production /scout-run invocations over 5 days, then `python3 scripts/ats/runs_log.py milestone-bar <data_dir>/runs.jsonl --lookback 5` to verify milestone bar achieved. Then `/gsd-complete-milestone` to archive v0.4.
+
+**Progress:** 6/6 phases complete — all 72 v1 requirements landed (51 ATS feature + 21 cleanup)
 
 ```
 [x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
@@ -73,7 +73,13 @@ Plan: 1 of 5
     [x] Plan 05-04 — scripts/ats/runs_log.py telemetry kwargs (D-2): dedup_decisions + regression_suspects + pass2_board_status; new CLI subcommands regression-suspects + pass2-board-broken (Pitfall 5 slicing encapsulated)
     [x] Plan 05-05 — skills/scout-run/SKILL.md flow rewrite (Step 2.5 JSON-LD routing via career_page_url closes Phase 4 deferral, Step 4.5 dedup hook, Step 5 enrich-then-tier per D-1, Step 6 regression-suspects/pass2-board-broken in Honest notes) + 3 doc fixes (scoring-rubric CON-09, search-config CON-10, chrome-setup CON-11/12 + DDP-08)
     [recovery] Plan 05-05 worktree was based on wrong commit (de48749 vs 2bd8f50); 3 commits cherry-picked onto main with 2 conflicts resolved (schema.py stale comment + scout-run/SKILL.md JSON-LD prose) — final state verified 60/60 tests pass
-[ ] Phase 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs)
+[x] Phase 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs) — 5/5 plans complete (verified human_needed: 11/12 automated; OUT-07 production threshold needs 5 real /scout-run runs)
+    [x] Plan 06-01 — Wave 0 RED tests for compute_milestone_bar (5 unit tests)
+    [x] Plan 06-02 — runs_log.py extensions: compute_milestone_bar + milestone-bar CLI + ab_tier_counts kwarg (D-1, D-2)
+    [x] Plan 06-03 — doc/version cleanup: 4-file version lockstep at 0.4.0 + CON-16 schema.py reference + CON-17/18 PII handling + README v0.4
+    [x] Plan 06-04 — scout-run/SKILL.md flow integration: Step 2 marketing-page deletion (preserves LinkedIn keyword search), Step 5 ab_tier_counts write, Step 6 Run Summary block, Step 7.5 post-write validation, Step 9 stdout JSON mirror, frontmatter v0.4.0 + preview.py [ATS-PREVIEW] cleanup
+    [x] Plan 06-05 — phase-wide grep gate as 9 pytest assertions (74/74 total tests pass)
+    [recovery] Plan 06-04 leaked _verify_06_04_task*.sh helper scripts to main; orchestrator deleted them (commit 0634580) before phase-wide gate runs
 ```
 
 **Total v1 requirements:** 72 (51 ATS feature + 21 concerns cleanup, surgically distributed into Phases 1/3/5/6).
