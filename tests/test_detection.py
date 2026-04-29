@@ -93,32 +93,26 @@ def test_two_factor_gate_confirmed(mock_greenhouse_ok):
 
 
 def test_two_factor_gate_borderline():
-    """DET-03: name match 70-84 -> BORDERLINE."""
+    """DET-03: name match 70-84 -> BORDERLINE.
+
+    token_set_ratio returns 100 when the shorter string is a subset of the longer.
+    To get a score in [70, 84], use two different non-subset multi-word names.
+    'Digital River' vs 'Digital Turbine' -> ~78.6 (both have 'Digital', differ on second word).
+    """
     from ats.detect import _apply_name_gate
-    # "Acme" vs "Acme Holdings Group" — token_set_ratio should land in [70, 84]
+    # "Digital River" vs "Digital Turbine" — token_set_ratio ~78.6 (borderline)
     raw = DetectionResult(
         provider="greenhouse",
         status=DetectionStatus.BORDERLINE,
-        board_url="https://boards-api.greenhouse.io/v1/boards/acme/jobs",
+        board_url="https://boards-api.greenhouse.io/v1/boards/digital-river/jobs",
         confidence=0.85,
-        evidence={"first_job_company_name": "Acme Holdings Group", "job_count": 5, "http_status": 200},
+        evidence={"first_job_company_name": "Digital Turbine", "job_count": 5, "http_status": 200},
     )
-    result = _apply_name_gate(raw, "Acme")
-    # The result may be BORDERLINE if score is in [70, 84], or CONFIRMED if >= 85
-    # We need it to be BORDERLINE — use a name that scores lower
-    # "Acme" vs "Acme Holdings Group International Corp" should produce < 85 but >= 70
-    raw2 = DetectionResult(
-        provider="greenhouse",
-        status=DetectionStatus.BORDERLINE,
-        board_url="https://boards-api.greenhouse.io/v1/boards/acme/jobs",
-        confidence=0.85,
-        evidence={"first_job_company_name": "Acme Holdings Group International Corp", "job_count": 5, "http_status": 200},
+    result = _apply_name_gate(raw, "Digital River")
+    assert result.status == DetectionStatus.BORDERLINE, (
+        f"Expected BORDERLINE for 'Digital River' vs 'Digital Turbine', got {result.status} "
+        f"(score={result.evidence.get('name_match_score')})"
     )
-    result2 = _apply_name_gate(raw2, "Acme")
-    # token_set_ratio("acme", "acme holdings group international") should be < 85 (after suffix strip, "acme" vs "acme holdings group international")
-    # We assert it's not CONFIRMED (the key property: this does NOT reach CONFIRMED)
-    # It may be BORDERLINE or NOT_FOUND depending on the actual score
-    assert result2.status != DetectionStatus.CONFIRMED, "Score should not be CONFIRMED for very different names"
 
 
 def test_two_factor_gate_below_70_is_not_found():
@@ -292,27 +286,40 @@ def test_negative_result_writes_none_sentinel(tmp_data_dir, monkeypatch, mock_gr
 # ---------------------------------------------------------------------------
 
 def test_borderline_appended_to_review_csv(tmp_data_dir, monkeypatch):
-    """DET-05: BORDERLINE result appended to ats_detection_review.csv."""
+    """DET-05: BORDERLINE result appended to ats_detection_review.csv.
+
+    The mock bypasses _apply_name_gate (patched to return a pre-cooked BORDERLINE)
+    so the test focuses on the CSV-append behavior, not the gate scoring. Gate
+    scoring is tested separately in test_two_factor_gate_* tests.
+    """
     import ats.detect as detect_module
 
-    # Build a fake provider that returns BORDERLINE with score=78
+    # Pre-cooked BORDERLINE result with score=78 (genuinely in 70-84 range)
+    borderline_result = DetectionResult(
+        provider="greenhouse",
+        status=DetectionStatus.BORDERLINE,
+        board_url="https://boards-api.greenhouse.io/v1/boards/airbnb/jobs",
+        confidence=0.78,
+        evidence={
+            "first_job_company_name": "Digital Turbine",
+            "job_count": 5,
+            "http_status": 200,
+            "name_match_score": 78.0,
+            "input_name": "Airbnb",
+            "returned_name": "Digital Turbine",
+        },
+    )
+
+    # Patch _apply_name_gate to return the pre-cooked BORDERLINE directly
+    monkeypatch.setattr(detect_module, "_apply_name_gate", lambda raw, name, **kw: borderline_result)
+
+    # Build a fake provider that returns any BORDERLINE (gate is patched anyway)
     class MockBorderlineProvider:
         NAME = "greenhouse"
         BOARD_URL_PATTERNS = []
 
         def detect(self, company_slug, name, client):
-            return DetectionResult(
-                provider="greenhouse",
-                status=DetectionStatus.BORDERLINE,
-                board_url="https://boards-api.greenhouse.io/v1/boards/airbnb/jobs",
-                confidence=0.85,
-                evidence={
-                    "first_job_company_name": "Airbnb Holdings Group Corp International",
-                    "job_count": 5,
-                    "http_status": 200,
-                    "name_match_score": 78.0,
-                },
-            )
+            return borderline_result
 
     monkeypatch.setattr(detect_module, "PROVIDERS", {"greenhouse": MockBorderlineProvider()})
     detect_module._init_detect_semaphores({"greenhouse": 2})
