@@ -228,6 +228,25 @@ def _execute_one(
         with _gate(provider_name):
             fetch_result = provider.fetch(company_slug, client, sem)
         elapsed = time.monotonic() - t0
+        # PRV-05 / D-1: surface auth_required as a distinguishable OK_ZERO with
+        # error="<provider>_auth_required". The non-None error field is what makes
+        # it visible in runs.jsonl per-(company, provider) entries
+        # (aggregate_outcomes + append_run already plumb FetchOutcome.error to
+        # the persistence path). Phase 5 will use this signal to route the
+        # company to Pass 2 only — not silently swallow as OK_ZERO.
+        # outcome=OK_ZERO + error=None  → regular zero (trust-on-zero)
+        # outcome=OK_ZERO + error="workday_auth_required" → auth gate (route to Pass 2)
+        if getattr(fetch_result, "auth_required", False):
+            return FetchOutcome(
+                company_slug=company_slug,
+                provider=provider_name,
+                outcome=RunOutcome.OK_ZERO,
+                listings=[],
+                raw=fetch_result.raw,
+                http_status=fetch_result.http_status,
+                error=f"{provider_name}_auth_required",
+                elapsed_seconds=elapsed,
+            )
         if not fetch_result.listings:
             return FetchOutcome(
                 company_slug=company_slug,
