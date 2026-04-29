@@ -35,7 +35,7 @@ The contract covers:
 
 All column names live in `scripts/schema.py`:
 
-- `MASTER_TARGETS_COLUMNS` — the master_targets.csv schema. Currently includes `company_name`, `pipeline_tier`, `industry`, `location`, `career_page_url`, **`ats_provider`**, **`ats_board_url`**, `connection_names`, `linkedin_connection_count`, `warm_path`, `already_applied`, `application_status`, `roles_applied_for`, `fit_notes`, `fit_score`, `what_they_do`, `last_checked`, `data_source`. (`ats_provider` and `ats_board_url` are new in v0.3 — `validate_data.py` auto-migrates older files.)
+- `MASTER_TARGETS_COLUMNS` — the master_targets.csv schema (v4). Includes `company_name`, `industry`, `career_page_url`, **`ats_provider`**, **`ats_board_url`**, `connection_names`, `linkedin_connection_count`, `application_status`, `fit_notes`, `last_checked`, `data_source`, `ats_slug_confidence`, `last_ats_hit_date`. Use `scripts/schema.py` as the authority; do not hardcode column names anywhere else.
 - `TRACKER_COLUMNS` — the JobScout_Tracker.xlsx header row.
 - `TRACKER_JSON_KEYS` — lowercase keys used in `new_rows.json`. One-to-one with `TRACKER_COLUMNS`.
 

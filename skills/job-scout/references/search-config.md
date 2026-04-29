@@ -49,7 +49,7 @@ If a pass finishes under-budget, **do not roll over** to later passes. Under-bud
 
 **Priority order within Pass 1** (when more candidates than budget):
 1. Companies with 3+ named connections (warm path likely).
-2. Companies on the user's pipeline list (`pipeline_tier <= 2`).
+2. Companies with `linkedin_connection_count` ≥ 1 AND `ats_provider` populated (ATS + warm path).
 3. Companies in `industries_preferred` from config.
 4. Companies with detected ATS providers (richer data).
 

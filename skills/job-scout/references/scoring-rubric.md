@@ -108,7 +108,7 @@ Apply after the base score. These are additive.
 | Warm introduction possible | +10 | Connection who can actively refer, not just a name in the system |
 | Founder/startup experience valued | +5 | JD explicitly mentions entrepreneurial background |
 | Military veteran preference | +5 | Company has veteran hiring programs or JD mentions military experience |
-| Company on Target Pipeline | +5 | Company exists in master_targets.csv with pipeline_tier 1-3 |
+| ATS warm path | +1 tier | source=ats:* AND posted_date ≤ 30 days (ISO date comparison against today's date). NOTE: this is a **tier elevation** (B→A, C→B; A stays A capped), NOT a score-point addition. Applied in scout-run/SKILL.md Step 5 after enrichment but before final tier assignment. |
 | Role involves building team from scratch | +3 | JD describes greenfield team/function buildout |
 | Requires PhD or elite MBA | -15 | "PhD required" or "MBA from top program required" |
 | Clearly IC role | -10 | Senior IC with no team management despite executive title |
