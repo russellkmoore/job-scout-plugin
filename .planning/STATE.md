@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-29T06:53:45.949Z"
+last_updated: "2026-04-29T06:57:03.433Z"
 progress:
   total_phases: 6
   completed_phases: 3
@@ -34,9 +34,11 @@ progress:
 
 ## Current Position
 
+Phase: 4 (Remaining providers + JSON-LD + filtering) — EXECUTING
+Plan: 1 of 5
 **Phase:** 3 — Detection + scout-detect skill + lazy inline detect + dead-doc-ref cleanup — **COMPLETE**
 **Plan:** 3 of 3 complete (03-01 detect.py + tests; 03-02 /scout-detect skill + file-contract; 03-03 lazy inline + CON-08)
-**Status:** Ready to execute
+**Status:** Executing Phase 4
 
 **Next phase:** 4 — Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD + filtering (11 reqs: PRV-01..09, STR-01, STR-03)
 
