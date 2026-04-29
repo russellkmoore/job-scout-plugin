@@ -1,0 +1,6 @@
+company_name,industry,career_page_url,ats_provider,ats_board_url,connection_names,linkedin_connection_count,application_status,fit_notes,last_checked,data_source,ats_slug_confidence,last_ats_hit_date,my_notes
+Airbnb,travel,https://careers.airbnb.com,,,,3,,known greenhouse user,,linkedin_connections,,,
+Stripe Inc,fintech,https://stripe.com/jobs,manual,https://boards.greenhouse.io/stripe,,5,,manually locked board,,user_csv,manual,,locked-by-user
+Lululemon,retail,https://careers.lululemon.com,greenhouse,https://boards-api.greenhouse.io/v1/boards/lululemon/jobs,,2,,fresh detection within 30d,2026-04-15,linkedin_connections,0.97,2026-04-15,
+StaleCo,saas,https://staleco.example.com,greenhouse,https://boards-api.greenhouse.io/v1/boards/staleco/jobs,,1,,detection >30d old -> eligible for re-detect,2025-12-01,linkedin_connections,0.91,2025-12-01,
+NoneCachedCo,manufacturing,https://nonecached.example.com,none,,,1,,negative cache from prior detect-batch,2026-04-20,scout_discovered,,,
