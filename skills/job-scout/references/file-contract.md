@@ -51,6 +51,7 @@ For run on date `<DATE>` (ISO `YYYY-MM-DD`):
 | New rows for tracker | `{data_dir}/daily/<DATE>/new_rows.json` (input to `tracker_utils.py append`) |
 | Per-A-tier packets (on demand) | `{data_dir}/daily/<DATE>/packets/<Company>_<Role>/` |
 | ATS raw payloads | `{data_dir}/daily/<DATE>/ats_raw/` (one file per provider response, created by `validate_data.py:ensure_today_subdirs` at run start). v0.4 SCH-02. |
+| Cross-source dedup result | `{data_dir}/daily/<DATE>/dedup_result.json` (intermediate per-run artifact; written by `scripts/ats/dedupe.py cross-source` at Step 4.5; consumed by Step 5 scoring). Contains `merged`, `review_band`, `linkedin_only`, `ats_only`, and `decisions` arrays. v0.4 DDP-02. |
 
 **Per-A-tier packet contents** (when generated via the hybrid on-demand flow):
 ```
