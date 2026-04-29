@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-29T03:32:42.936Z"
+last_updated: "2026-04-29T04:30:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_phases: 3
+  total_plans: 13
+  completed_plans: 10
+  percent: 77
 ---
 
 # State: job-scout-plugin
 
-**Last updated:** 2026-04-29 (post-Plan 02-03 execution; Phase 2 COMPLETE — 3/3 plans complete; all 10 DSP-* requirements landed)
+**Last updated:** 2026-04-29 (post-Phase-3 execution + gap closure; Phase 3 COMPLETE — 3/3 plans + STR-02/SC-1 borderline confidence fix; all 10 DET/STR/CON-08 requirements landed)
 
 ## Project Reference
 
@@ -34,13 +34,13 @@ progress:
 
 ## Current Position
 
-Phase: 3 (Detection + scout-detect skill + lazy inline detect + dead-doc-ref cleanup) — EXECUTING
-Plan: 1 of 3
-**Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **COMPLETE**
-**Plan:** 3 of 3 complete (02-01 substrate done; 02-02 Greenhouse provider done; 02-03 [ATS-PREVIEW] wire-in done)
-**Status:** Executing Phase 3
+**Phase:** 3 — Detection + scout-detect skill + lazy inline detect + dead-doc-ref cleanup — **COMPLETE**
+**Plan:** 3 of 3 complete (03-01 detect.py + tests; 03-02 /scout-detect skill + file-contract; 03-03 lazy inline + CON-08)
+**Status:** Phase 3 verified (6/6 must-haves) after STR-02/SC-1 inline gap closure (commit 7928f78)
 
-**Progress:** 2/6 phases complete
+**Next phase:** 4 — Remaining providers (Lever, Ashby, SmartRecruiters, Workday) + JSON-LD + filtering (11 reqs: PRV-01..09, STR-01, STR-03)
+
+**Progress:** 3/6 phases complete
 
 ```
 [x] Phase 1 — Schema migration + paths + foundational cleanup (13 reqs) — 4/4 plans complete
@@ -52,7 +52,11 @@ Plan: 1 of 3
     [x] Plan 02-01 — scripts/ats package + Provider Protocol + Listing + dispatcher (shared httpx.Client + per-provider semaphores + 3-state outcomes + kill-switch) + runs_log.py (DSP-01..08)
     [x] Plan 02-02 — Greenhouse provider conforming to Provider Protocol + airbnb 3-job sanitized fixture + SC-4 broken-fixture stress test (DSP-09)
     [x] Plan 02-03 — [ATS-PREVIEW] Pass 1 wire-in to /scout-run Step 2.5 via scripts/ats/preview.py (single-fetch_all driver) + runs.jsonl append + ats_raw/<provider>/<slug>.json persistence; stash-replay protocol preserved user's pending uncommitted edits (DSP-10)
-[ ] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs)
+[x] Phase 3 — Detection + /scout-detect + lazy inline + dead-doc-ref cleanup (10 reqs) — 3/3 plans complete + 1 inline gap closure
+    [x] Plan 03-01 — scripts/ats/detect.py (two-factor gate + idempotency + main-thread CSV write-back + telemetry) + Wave 0 rapidfuzz install + tests/test_detection.py (DET-01..05, DET-07, STR-02, STR-04)
+    [x] Plan 03-02 — /scout-detect skill orchestration + ats_detection_review.csv registered in file-contract.md (DET-06, STR-02, STR-04)
+    [x] Plan 03-03 — /scout-run Step 2b lazy inline detect + 3 dead commands/scout-run.md refs fixed (DET-04, DET-07, CON-08)
+    [x] Inline gap closure (commit 7928f78) — borderline ats_slug_confidence visible (0.70-0.94), zero_open_roles edge case preserved (STR-02 / ROADMAP SC-1)
 [ ] Phase 4 — Remaining providers + JSON-LD + filtering (11 reqs)
 [ ] Phase 5 — Cross-source dedup + tier bump + enrich + scoring/tracker cleanup (16 reqs)
 [ ] Phase 6 — Run summary + delete legacy + milestone close + version/PII/post-run cleanup (12 reqs)
