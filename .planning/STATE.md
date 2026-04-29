@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-29T03:28:02.207Z"
+last_updated: "2026-04-29T03:32:42.936Z"
 progress:
   total_phases: 6
   completed_phases: 2
@@ -34,9 +34,11 @@ progress:
 
 ## Current Position
 
+Phase: 3 (Detection + scout-detect skill + lazy inline detect + dead-doc-ref cleanup) — EXECUTING
+Plan: 1 of 3
 **Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **COMPLETE**
 **Plan:** 3 of 3 complete (02-01 substrate done; 02-02 Greenhouse provider done; 02-03 [ATS-PREVIEW] wire-in done)
-**Status:** Ready to execute
+**Status:** Executing Phase 3
 
 **Progress:** 2/6 phases complete
 
