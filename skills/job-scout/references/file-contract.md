@@ -34,6 +34,7 @@ Format:
 | Honest assessment | `{data_dir}/assessment/Honest_Career_Assessment.md` | `/scout-setup` |
 | Resume bank | `{data_dir}/Resumes/` | User-curated. Scout reads, never writes. |
 | Run telemetry log | `{data_dir}/runs.jsonl` | `/scout-run` (appends one JSON line per run; created empty by `validate_data.py:validate_runs_log` at first run startup). v0.4 SCH-01. |
+| ATS detection review | `{data_dir}/ats_detection_review.csv` | `/scout-detect` via `scripts/ats/detect.py` (append-only). Borderline matches (rapidfuzz score 70-84) and zero-open-role boards (HTTP 200 + 0 jobs) land here for manual review. User fills in the `action` column ("accept" or "skip"). v0.4 DET-05. |
 
 **Schema for `master_targets.csv` and `JobScout_Tracker.xlsx` lives in `scripts/schema.py`.** Never inline column lists. If a column is referenced by name in a prompt, it must match `MASTER_TARGETS_COLUMNS` or `TRACKER_COLUMNS` exactly.
 
