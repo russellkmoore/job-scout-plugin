@@ -150,8 +150,8 @@ Tell the user what was updated and what to expect from the next `/scout-run`:
 ```
 Your master_targets.csv now has ats_provider populated for the companies detected.
 The next /scout-run will:
-  - Run [ATS-PREVIEW] Pass 1 against every row where ats_provider="greenhouse" —
-    producing real ATS listings tagged source=ats:greenhouse
+  - Run ATS Pass 1 against every row where ats_provider is populated —
+    producing real ATS listings tagged source=ats:<provider>
   - Lazy-inline-detect any company in the daily slate that still has empty ats_provider (Step 2b)
 
 Companies with ats_provider="none" are NOT re-detected on subsequent runs unless you

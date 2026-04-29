@@ -2,7 +2,7 @@
 name: scout-setup
 description: Set up Job Scout — profile extraction from resume + LinkedIn export, honest career assessment, search config, and state pointer for daily runs. Triggers when the user types `/scout-setup` or asks to "set up the job scout", "configure job scout", "do first-time job scout setup".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion, TodoWrite
-version: 0.3.1
+version: 0.4.0
 ---
 
 Run the Job Scout first-time setup. This gathers the user's data, extracts their professional profile, generates an honest career assessment, writes a state pointer at `~/.job-scout/state.json`, and creates all configuration files needed for daily scout runs.
@@ -52,6 +52,41 @@ Use `AskUserQuestion` to gather these inputs. Ask them in sequence, not all at o
    - Default: `~/Documents/JobSearch/`
    - The directory must persist on the user's filesystem (i.e. NOT a session-scoped temp folder). If the user doesn't have a clear preference, accept the default.
    - Create the directory if missing: `mkdir -p <data_dir>` and `mkdir -p <data_dir>/daily` and `mkdir -p <data_dir>/assessment` and `mkdir -p <data_dir>/Resumes`.
+
+> **Important — PII and data directory security (v0.4):**
+>
+> Your `<data_dir>` contains sensitive data:
+> - `connections_summary.csv` and `master_targets.csv:connection_names` — LinkedIn
+>   connection data for potentially hundreds of third parties (names, companies,
+>   titles) who did not consent to be included.
+> - `candidate_profile.json` — your professional profile with salary targets and
+>   skill assessments.
+> - `config.json:candidate.resume_path` — absolute path to your resume.
+>
+> **Do NOT place `<data_dir>` in:**
+> - iCloud Drive (syncs to Apple servers automatically)
+> - Dropbox / OneDrive / Google Drive (same risk)
+> - Any folder that auto-syncs to a shared device
+>
+> Recommended: keep `<data_dir>` at `~/Documents/JobSearch/` (local-only on macOS
+> by default unless you've enabled iCloud Desktop sync).
+>
+> **If you ever share `config.json` (bug report, support thread, etc.):**
+> Always redact `candidate.resume_path` first — it exposes your filesystem layout.
+>
+> A `.gitignore` template to prevent accidental git commits of your job search data:
+>
+> ```
+> # Job Scout data directory — contains PII and personal data
+> <data_dir>/
+> *.csv
+> *.xlsx
+> config.json
+> candidate_profile.json
+> runs.jsonl
+> ```
+>
+> Add this to the `.gitignore` of any project folder that's a parent of your `<data_dir>`.
 
 ---
 

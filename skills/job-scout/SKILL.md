@@ -6,7 +6,7 @@ description: >
   "job matches", or anything related to automated job searching, job scoring, resume tailoring,
   or career assessment. Also triggers for "honest career assessment", "job market positioning",
   or "ATS optimization."
-version: 0.3.0
+version: 0.4.0
 ---
 
 # Job Scout
@@ -35,7 +35,7 @@ The contract covers:
 
 All column names live in `scripts/schema.py`:
 
-- `MASTER_TARGETS_COLUMNS` — the master_targets.csv schema (v4). Includes `company_name`, `industry`, `career_page_url`, **`ats_provider`**, **`ats_board_url`**, `connection_names`, `linkedin_connection_count`, `application_status`, `fit_notes`, `last_checked`, `data_source`, `ats_slug_confidence`, `last_ats_hit_date`. Use `scripts/schema.py` as the authority; do not hardcode column names anywhere else.
+- `MASTER_TARGETS_COLUMNS` — the master_targets.csv schema (v4). See `scripts/schema.py:MASTER_TARGETS_COLUMNS` for the canonical column list. Use `scripts/schema.py` as the authority; do not hardcode column names anywhere else.
 - `TRACKER_COLUMNS` — the JobScout_Tracker.xlsx header row.
 - `TRACKER_JSON_KEYS` — lowercase keys used in `new_rows.json`. One-to-one with `TRACKER_COLUMNS`.
 

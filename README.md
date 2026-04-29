@@ -6,11 +6,21 @@ A wide, deliberate daily job search across **company career pages, ATS boards, m
 
 Job Scout uses Claude in Chrome to:
 
-1. **Pass 1 — Company-first deep-dive** (60% of effort). For each of your top target companies (sorted by warm connections × recency), it checks the company's own career page, detects the ATS provider (Greenhouse / Lever / Workday / Ashby), and falls back to LinkedIn's company jobs tab.
+1. **Pass 1 — ATS-first sourcing** (60% of effort). For each of your top target companies, queries structured ATS APIs directly — Greenhouse, Lever, Ashby, SmartRecruiters, Workday — plus a JSON-LD fallback for companies with no detected ATS. Then runs a LinkedIn keyword search scoped to each company name. Marketing-page Chrome scraping was removed in v0.4.
 2. **Pass 2 — Specialized job boards** (25%). Wellfound, Built In Seattle, YC Work at a Startup, and the current Hacker News "Who is hiring" thread.
 3. **Pass 3 — LinkedIn keyword search** (15%, last). Runs your configured queries — but with the smallest budget, because LinkedIn's keyword search is the noisiest source.
 
 Then it scores every candidate listing against your actual resume and connections (no inflation), produces a daily report with **actionable** A-tier blocks (direct apply URL, named warm-intro contact, ATS keyword diff, pre-drafted outreach), and appends to a deduplicated tracker spreadsheet. Full tailored resume packets are generated **on demand** when you reply with `pack <id> ...`.
+
+## What's new in v0.4
+
+- **ATS-first sourcing.** Queries Greenhouse, Lever, Ashby, SmartRecruiters, and Workday APIs directly — no Chrome navigation of marketing pages.
+- **JSON-LD fallback.** Companies with no detected ATS provider get a structured JSON-LD fetch on their `career_page_url` (no Chrome).
+- **`/scout-detect` skill.** Batch + lazy-inline detection of each company's ATS provider. Populates `ats_provider`, `ats_board_url`, and `ats_slug_confidence` in `master_targets.csv` with a two-factor name-match gate.
+- **Cross-source dedup.** ATS and LinkedIn listings are deduplicated with two-key fuzzy matching (`rapidfuzz`). Decisions are logged to `runs.jsonl` for transparency; borderline matches surface in the report's *Honest notes*.
+- **Enrich-then-tier.** ATS A/B-tier candidates get LinkedIn shared-connection lookup BEFORE final tier assignment (restores warm-path signal lost by pure ATS results).
+- **Structured observability.** `runs.jsonl` records per-provider outcomes, field completion, dedup decisions, A/B-tier counts per source, regression suspects, and Pass-2 board-broken warnings.
+- **Milestone bar.** `python3 scripts/ats/runs_log.py milestone-bar <data_dir>/runs.jsonl --lookback 5` prints a JSON dict with `pass1_share_pct` (target ≥ 60%) and `wall_clock_avg_seconds` (target ≤ 300s, ATS-fetch only — not total `/scout-run` wall-clock).
 
 ## Requirements
 
@@ -18,7 +28,7 @@ Then it scores every candidate listing against your actual resume and connection
 - **LinkedIn account** — logged in via Chrome
 - **Resume** — PDF or DOCX
 - **LinkedIn data export** (recommended) — request from `linkedin.com/mypreferences/d/download-my-data`
-- Python 3.8+ with `pandas` and `openpyxl` (`pip install pandas openpyxl`)
+- Python 3.8+ with `pandas`, `openpyxl`, `httpx>=0.27,<0.29`, and `rapidfuzz` (use `pipx install` or `python3 -m venv`; the scripts print install hints on first run)
 - Optional logins for Pass 2: **Wellfound**, **YC Work at a Startup** (full JDs require login on those two)
 
 ## Getting started
@@ -121,5 +131,6 @@ Anything that goes in `config.json` should never be repeated in scheduled-task i
 
 ## Versioning
 
+- **0.4.0** — ATS-first sourcing across Greenhouse, Lever, Ashby, SmartRecruiters, Workday + JSON-LD fallback. New `/scout-detect` skill. Cross-source dedup. Enrich-then-tier. Marketing-page Chrome scraping removed. Milestone bar verifiable from `runs.jsonl`.
 - **0.3.0** — Multi-pass search (career pages → boards → LinkedIn last). State pointer at `~/.job-scout/state.json`. Single-source schema in `scripts/schema.py`. File contract in `references/file-contract.md`. Auto-migrating data validator. New `ats_provider` / `ats_board_url` columns. Hybrid on-demand A-tier packets.
 - **0.2.x** — LinkedIn-only browsing with company-first prioritization. Hard-coded fallback config paths. Inline column lists.
