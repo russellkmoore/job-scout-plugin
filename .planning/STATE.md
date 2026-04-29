@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v0.4
+milestone_name: milestone
+status: executing
+last_updated: "2026-04-29T03:28:02.207Z"
+progress:
+  total_phases: 6
+  completed_phases: 2
+  total_plans: 10
+  completed_plans: 7
+  percent: 70
+---
+
 # State: job-scout-plugin
 
 **Last updated:** 2026-04-29 (post-Plan 02-03 execution; Phase 2 COMPLETE — 3/3 plans complete; all 10 DSP-* requirements landed)
@@ -11,6 +25,7 @@
 **Current milestone:** v0.4 — ATS-first job sourcing. Replace the failing marketing-page Chrome scraping path with structured ATS API queries (Greenhouse, Lever, Ashby, SmartRecruiters, Workday) plus a JSON-LD fallback.
 
 **See:**
+
 - `.planning/PROJECT.md` — full project context, requirements (validated/active/OOS), constraints, key decisions
 - `.planning/REQUIREMENTS.md` — 51 v1 requirements with traceability to phases
 - `.planning/ROADMAP.md` — 6-phase delivery plan with success criteria
@@ -21,7 +36,7 @@
 
 **Phase:** 2 — Provider Protocol + Greenhouse + dispatcher + observability — **COMPLETE**
 **Plan:** 3 of 3 complete (02-01 substrate done; 02-02 Greenhouse provider done; 02-03 [ATS-PREVIEW] wire-in done)
-**Status:** Phase 2 closed out (all 10 DSP-* requirements landed); next: Phase 3 — Detection + /scout-detect skill + lazy inline + dead-doc-ref cleanup. ROADMAP flags Phase 3 for `/gsd-research-phase` before planning (two-factor detection gate tuning needs real top-30 batch data).
+**Status:** Ready to execute
 
 **Progress:** 2/6 phases complete
 
