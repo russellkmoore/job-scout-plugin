@@ -139,20 +139,31 @@ def _parse_workday_url(url: str):
 def _parse_workday_posted_on(posted_on: str, today: Optional[date] = None) -> str:
     """Parse Workday's freeform English postedOn field to ISO date.
 
-    Workday returns these patterns (verified live 2026-04-28):
+    Workday returns these patterns (verified live on Aritzia 2026-04-29):
         'Posted Today'         -> today.isoformat()
+        'Posted Yesterday'     -> (today - 1d).isoformat()
         'Posted 6 Days Ago'    -> (today - 6d).isoformat()
         'Posted 30+ Days Ago'  -> (today - 30d).isoformat()  (lower bound)
         ''                     -> ''                          (preserve empty)
         unparseable            -> ''                          (age filter treats as stale)
 
     The regex r'(\\d+)\\+?\\s+days?\\s+ago' handles both "5 Days Ago" and "30+ Days Ago".
+
+    DSP-02 history: "Posted Yesterday" was missing from the original parser,
+    causing every Workday tenant whose response carried that string (e.g.
+    Aritzia: 7/20 jobs in the live sample) to be silently dropped by the
+    dispatcher's REQUIRED_FIELDS guard. Tests cover all four shapes.
     """
     if today is None:
         today = date.today()
     s = (posted_on or "").strip()
     if not s:
         return ""
+    # "Yesterday" must be checked BEFORE the bare "today" branch — neither
+    # substring is contained in the other, but ordering by specificity keeps
+    # the intent obvious to readers.
+    if re.search(r"yesterday", s, re.IGNORECASE):
+        return (today - timedelta(days=1)).isoformat()
     if re.search(r"today", s, re.IGNORECASE):
         return today.isoformat()
     m = re.search(r"(\d+)\+?\s+days?\s+ago", s, re.IGNORECASE)
@@ -349,7 +360,7 @@ def fetch(slug: str, client: "httpx.Client", semaphore) -> FetchResult:
     listings: List[Listing] = []
     for raw_job in raw_jobs:
         try:
-            listings.append(to_listing(raw_job, tenant=tenant, dc=dc, site=site))
+            listings.append(to_listing(raw_job, tenant=tenant, dc=dc, site=site, board_url=slug))
         except ValueError as exc:
             print(
                 f"WARNING: workday/{slug}: dropped: {exc}",
@@ -370,6 +381,7 @@ def to_listing(
     tenant: str = "",
     dc: str = "",
     site: str = "",
+    board_url: str = "",
 ) -> Listing:
     """Map one Workday job dict to a canonical Listing.
 
@@ -377,7 +389,8 @@ def to_listing(
         company      <- tenant (Workday has no per-job company name)
         title        <- payload.title
         location     <- payload.locationsText
-        url          <- constructed from tenant/dc/site + payload.externalPath
+        url          <- board_url + payload.externalPath  (preferred)
+                        OR fallback construction from tenant/dc/site
         posted_date  <- _parse_workday_posted_on(payload.postedOn)
         source       <- "ats:workday"
 
@@ -385,17 +398,31 @@ def to_listing(
         description  <- "" (Workday detail endpoint requires JS cookies — v0.4 out-of-scope)
         department   <- "" (not in public POST response)
         employment_type <- "" (not in public POST response)
-        raw          <- payload (unmodified)
+        raw          <- payload (unmodified — preserves bulletFields[] for
+                        debug/replay; the requisition ID at bulletFields[-1]
+                        is recoverable from raw without a dedicated field.)
+
+    URL construction:
+        When `board_url` is supplied (passed by fetch() as the originating
+        ats_board_url), the apply URL is `board_url.rstrip('/') + externalPath`.
+        This faithfully preserves whatever locale/site shape the tenant
+        actually exposed (some tenants like Aritzia have no /en-US/ segment).
+        When `board_url` is absent, fall back to the tenant/dc/site shape
+        with /en-US/ — kept for backward compat with Phase 4 unit tests
+        that didn't thread board_url through.
 
     Raises:
         ValueError: any required field is missing/empty (delegated to
-            Listing.__post_init__).
+            Listing.__post_init__). The fetch() loop catches this and
+            drops the offending listing — DSP-02.
     """
     title = (payload.get("title") or "").strip()
     external_path = (payload.get("externalPath") or "").strip()
-    # Apply URL is the en-US HTML path. Detail JSON endpoint requires
-    # JS-set cookies — out of v0.4 scope per RESEARCH.md.
-    if tenant and dc and site:
+    if board_url and external_path:
+        url = board_url.rstrip("/") + external_path
+    elif tenant and dc and site:
+        # Backward-compat fallback. Detail JSON endpoint requires JS-set
+        # cookies — out of v0.4 scope per RESEARCH.md.
         url = f"https://{tenant}.{dc}.myworkdayjobs.com/en-US/{site}{external_path}"
     else:
         url = ""
