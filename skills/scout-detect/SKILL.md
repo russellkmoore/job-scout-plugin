@@ -2,7 +2,7 @@
 name: scout-detect
 description: Detect ATS providers for top-connection companies and populate ats_provider + ats_board_url + ats_slug_confidence in master_targets.csv. Triggers when the user types `/scout-detect` or asks to "detect job boards", "find which ATS my target companies use", "populate ATS fields", "scan for ATS coverage".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, TodoWrite
-version: 0.4.0
+version: 0.4.1
 ---
 
 Run a one-shot ATS provider detection sweep over the user's top-N connection-weighted companies in `master_targets.csv`. Populates `ats_provider`, `ats_board_url`, and `ats_slug_confidence` so subsequent `/scout-run` invocations can produce real ATS-sourced listings. Idempotent: re-running on the same CSV is a no-op unless `--force` is passed; rows with `ats_provider=manual` are NEVER overwritten regardless of `--force`.

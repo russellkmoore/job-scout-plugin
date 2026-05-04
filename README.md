@@ -131,6 +131,7 @@ Anything that goes in `config.json` should never be repeated in scheduled-task i
 
 ## Versioning
 
+- **0.4.1** — Bugfix: `preview.py` now sanitizes `company_slug` for filesystem use, restoring Workday outcomes (Apple, Microsoft, Salesforce, T-Mobile, Target, Slalom, Square, Accenture, Chewy, Aritzia, CSC Generation) that were silently dropped on raw-payload write.
 - **0.4.0** — ATS-first sourcing across Greenhouse, Lever, Ashby, SmartRecruiters, Workday + JSON-LD fallback. New `/scout-detect` skill. Cross-source dedup. Enrich-then-tier. Marketing-page Chrome scraping removed. Milestone bar verifiable from `runs.jsonl`.
 - **0.3.0** — Multi-pass search (career pages → boards → LinkedIn last). State pointer at `~/.job-scout/state.json`. Single-source schema in `scripts/schema.py`. File contract in `references/file-contract.md`. Auto-migrating data validator. New `ats_provider` / `ats_board_url` columns. Hybrid on-demand A-tier packets.
 - **0.2.x** — LinkedIn-only browsing with company-first prioritization. Hard-coded fallback config paths. Inline column lists.

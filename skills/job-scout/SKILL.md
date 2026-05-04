@@ -6,7 +6,7 @@ description: >
   "job matches", or anything related to automated job searching, job scoring, resume tailoring,
   or career assessment. Also triggers for "honest career assessment", "job market positioning",
   or "ATS optimization."
-version: 0.4.0
+version: 0.4.1
 ---
 
 # Job Scout

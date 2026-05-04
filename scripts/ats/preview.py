@@ -53,6 +53,7 @@ Per-block append is the v0.4 contract; rotation/aggregation is OOS for v0.4 per 
 """
 import json
 import os
+import re
 import sys
 import time
 from typing import Any, Dict, List, Tuple
@@ -69,6 +70,30 @@ if SCRIPTS_DIR not in sys.path:
 from ats.dispatcher import fetch_all, aggregate_outcomes  # noqa: E402
 from ats.normalize import apply_filters  # noqa: E402  # PRV-06/07/08, STR-03
 from ats.runs_log import append_run, RunOutcome  # noqa: E402
+
+
+# Workday's company_slug is the full board URL (e.g.
+# 'https://target.wd5.myworkdayjobs.com/wday/cxs/target/targetcareers/jobs')
+# because workday.py treats slug==URL by design (see workday.py docstring,
+# matches jsonld.py). Without sanitization, the embedded '/' chars route
+# os.path.join through nonexistent intermediate dirs and open() raises
+# FileNotFoundError, dropping every Workday outcome (Apple, Microsoft,
+# Salesforce, T-Mobile, Target, Slalom, Square, Accenture, Chewy, Aritzia,
+# CSC Generation — most of master_targets' high-connection companies) before
+# they make it to the report.
+#
+# Sanitize only the filename component. The inner JSON payload still carries
+# the original company_slug verbatim, and dedupe.py reads from JSON contents
+# (not filenames), so this is identity-preserving for downstream consumers.
+# Greenhouse / Lever / Ashby / SmartRecruiters use plain identifier slugs
+# already, so this is a no-op for them.
+_FILENAME_UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _slug_to_filename(slug: str) -> str:
+    """Map an arbitrary company_slug to a filesystem-safe filename stem."""
+    safe = _FILENAME_UNSAFE_CHARS.sub("_", slug).strip("_")
+    return safe or "unknown"
 
 
 def run_preview(
@@ -154,7 +179,8 @@ def run_preview(
         ok_companies.append(o.company_slug)
         provider_dir = os.path.join(ats_raw_dir, o.provider)
         os.makedirs(provider_dir, exist_ok=True)
-        raw_path = os.path.join(provider_dir, f"{o.company_slug}.json")
+        filename_stem = _slug_to_filename(o.company_slug)
+        raw_path = os.path.join(provider_dir, f"{filename_stem}.json")
         payload = {
             "company_slug": o.company_slug,
             "provider": o.provider,
@@ -165,7 +191,7 @@ def run_preview(
         }
         with open(raw_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, ensure_ascii=False)
-        raw_persisted[f"{o.provider}/{o.company_slug}.json"] = len(o.listings)
+        raw_persisted[f"{o.provider}/{filename_stem}.json"] = len(o.listings)
 
     # Aggregate from the SAME outcomes — no second fetch.
     per_provider, per_company_provider, per_provider_listings = aggregate_outcomes(outcomes)

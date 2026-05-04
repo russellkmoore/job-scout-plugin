@@ -437,7 +437,7 @@ if __name__ == "__main__":
         print("dedupe.py — Cross-source dedup\nCommands: cross-source")
         sys.exit(0)
     elif cmd in ("--version", "-V"):
-        print("dedupe.py 0.4.0")
+        print("dedupe.py 0.4.1")
         sys.exit(0)
     else:
         print(f"ERROR: unknown command {cmd!r}", file=sys.stderr)

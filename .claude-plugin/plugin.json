@@ -1,6 +1,6 @@
 {
   "name": "job-scout",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "ATS-first job search across Greenhouse, Lever, Ashby, SmartRecruiters, and Workday APIs, plus JSON-LD fallback, Wellfound, Built In Seattle, YC Work at a Startup, HN Who is Hiring, and LinkedIn — with honest scoring, connection-first targeting, and ATS-focused tailoring briefs.",
   "author": {
     "name": "Job Scout Contributors"

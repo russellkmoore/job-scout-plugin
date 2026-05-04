@@ -2,7 +2,7 @@
 name: scout-setup
 description: Set up Job Scout — profile extraction from resume + LinkedIn export, honest career assessment, search config, and state pointer for daily runs. Triggers when the user types `/scout-setup` or asks to "set up the job scout", "configure job scout", "do first-time job scout setup".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion, TodoWrite
-version: 0.4.0
+version: 0.4.1
 ---
 
 Run the Job Scout first-time setup. This gathers the user's data, extracts their professional profile, generates an honest career assessment, writes a state pointer at `~/.job-scout/state.json`, and creates all configuration files needed for daily scout runs.

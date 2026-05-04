@@ -2,7 +2,7 @@
 name: scout-run
 description: Run a daily job search — ATS-first sourcing (Greenhouse, Lever, Ashby, SmartRecruiters, Workday) plus JSON-LD fallback, LinkedIn keyword search, and specialized boards (Wellfound, Built In Seattle, YC Work at a Startup, HN Who is Hiring), with honest scoring and actionable per-match output. Triggers when the user types `/scout-run` or asks to "run the job scout", "find me jobs", "do a daily job search", "check for new job matches".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite, mcp__Claude_in_Chrome__*
-version: 0.4.0
+version: 0.4.1
 ---
 
 Execute a Job Scout search run. The scout uses ATS-first sourcing (Greenhouse, Lever, Ashby, SmartRecruiters, Workday) plus JSON-LD fallback, LinkedIn keyword search, and specialized boards (Wellfound, Built In Seattle, YC Work at a Startup, HN Who is Hiring) — scores matches honestly against the candidate's actual profile — and produces a daily report plus tracker update with **actionable** A-tier output (warm path, ATS keyword diff, outreach draft).
