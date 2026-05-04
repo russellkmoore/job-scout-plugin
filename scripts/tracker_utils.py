@@ -165,7 +165,14 @@ def create_empty_tracker(filepath):
 
 
 def load_tracker(filepath):
-    """Load existing tracker. Returns (workbook, list of rows, set of existing job IDs, user_extra_headers).
+    """Load existing tracker. Returns (workbook, list of rows, set of existing dedup keys, user_extra_headers).
+
+    The dedup-key set is built via extract_dedup_key (CON-13), so LinkedIn rows
+    are keyed by numeric job ID and ATS / career-page rows are keyed by URL
+    string. This is the same key shape rebuild() already uses for in-place
+    dedup, and it's what append_rows needs to match against — otherwise
+    non-LinkedIn URLs return None from the LinkedIn-anchored helper and
+    never deduplicate on append.
 
     user_extra_headers: list of column header names from row 1 beyond len(HEADERS).
     Empty list if no user-added columns exist.
@@ -184,7 +191,7 @@ def load_tracker(filepath):
     user_extra_headers = [h for h in ws_headers[len(HEADERS):] if h is not None]
 
     rows = []
-    job_ids = set()
+    dedup_keys = set()
 
     for row in ws.iter_rows(min_row=2, max_row=ws.max_row, values_only=True):
         row_list = list(row)
@@ -194,17 +201,23 @@ def load_tracker(filepath):
         rows.append(row_list)
 
         url = row_list[9]  # Job URL column
-        job_id = extract_linkedin_job_id(url)  # CON-13: LinkedIn-anchored only
-        if job_id:
-            job_ids.add(job_id)
+        key = extract_dedup_key(url)  # CON-13: LinkedIn → job ID; others → URL string
+        if key:
+            dedup_keys.add(key)
 
-    return wb, rows, job_ids, user_extra_headers
+    return wb, rows, dedup_keys, user_extra_headers
 
 
 def get_dedup_set(filepath):
-    """Return JSON list of existing job IDs for the SKILL.md to use for pre-search deduplication."""
-    _, _, job_ids, _ = load_tracker(filepath)
-    return sorted(list(job_ids))
+    """Return JSON list of existing dedup keys for the SKILL.md to use for pre-search deduplication.
+
+    Keys are the same shape produced by extract_dedup_key (CON-13): LinkedIn
+    URLs collapse to numeric job IDs; ATS / career-page URLs surface as the
+    URL string itself (lowercased, stripped). Keeps load_tracker / append_rows
+    in lockstep with rebuild()'s in-place dedup.
+    """
+    _, _, dedup_keys, _ = load_tracker(filepath)
+    return sorted(list(dedup_keys))
 
 
 def append_rows(filepath, new_rows_json_path):
@@ -233,7 +246,7 @@ def append_rows(filepath, new_rows_json_path):
     with open(new_rows_json_path, 'r') as f:
         new_rows = json.load(f)
 
-    _, existing_rows, existing_ids, user_extra_headers = load_tracker(filepath)
+    _, existing_rows, existing_keys, user_extra_headers = load_tracker(filepath)
 
     added = 0
     skipped_dupe = 0
@@ -241,18 +254,21 @@ def append_rows(filepath, new_rows_json_path):
 
     for row_dict in new_rows:
         url = row_dict.get("job_url", "")
-        job_id = extract_linkedin_job_id(url)  # CON-13: LinkedIn-anchored only
+        # CON-13: dedup by extract_dedup_key (LinkedIn → job ID; others → URL string)
+        # so ATS / career-page rows actually deduplicate. Stale detection below stays
+        # LinkedIn-anchored — only numeric job IDs carry that signal.
+        dedup_key = extract_dedup_key(url)
 
         # Dedup check
-        if job_id and job_id in existing_ids:
+        if dedup_key and dedup_key in existing_keys:
             skipped_dupe += 1
             continue
 
-        # Stale check
-        stale, _ = is_stale_by_id(url)
+        # Stale check (LinkedIn-only — non-LinkedIn URLs return (False, None))
+        stale, linkedin_id = is_stale_by_id(url)
         if stale:
             row_dict["status"] = "Stale — Verify"
-            row_dict["notes"] = f"LIKELY STALE — LinkedIn job ID {job_id} suggests old listing. {row_dict.get('notes', '')}".strip()
+            row_dict["notes"] = f"LIKELY STALE — LinkedIn job ID {linkedin_id} suggests old listing. {row_dict.get('notes', '')}".strip()
             flagged_stale_count += 1
 
         # CON-02: validate application_status against STATUS_VALUES.
@@ -297,8 +313,8 @@ def append_rows(filepath, new_rows_json_path):
         ]
 
         existing_rows.append(row_list)
-        if job_id:
-            existing_ids.add(job_id)
+        if dedup_key:
+            existing_keys.add(dedup_key)
         added += 1
 
     # Rebuild the entire file with consistent formatting

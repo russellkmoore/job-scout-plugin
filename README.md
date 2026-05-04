@@ -131,6 +131,7 @@ Anything that goes in `config.json` should never be repeated in scheduled-task i
 
 ## Versioning
 
+- **0.4.2** — Bugfixes: (1) `tracker_utils.append_rows` now deduplicates non-LinkedIn rows by URL string via `extract_dedup_key`, matching `rebuild()`; previously ATS / career-page rows could re-append on every run because the LinkedIn-anchored helper returned `None`. (2) `detect.py:_apply_name_gate` now returns `NOT_FOUND` for HTTP 200 + zero jobs + no `first_job_company_name` (SmartRecruiters `totalFound=0`, Lever empty array, Greenhouse zero-job catch-all); previously these were silently accepted as `BORDERLINE` with `name_match_score=0.0` and stamped onto `master_targets`. Closes #1.
 - **0.4.1** — Bugfix: `preview.py` now sanitizes `company_slug` for filesystem use, restoring Workday outcomes (Apple, Microsoft, Salesforce, T-Mobile, Target, Slalom, Square, Accenture, Chewy, Aritzia, CSC Generation) that were silently dropped on raw-payload write.
 - **0.4.0** — ATS-first sourcing across Greenhouse, Lever, Ashby, SmartRecruiters, Workday + JSON-LD fallback. New `/scout-detect` skill. Cross-source dedup. Enrich-then-tier. Marketing-page Chrome scraping removed. Milestone bar verifiable from `runs.jsonl`.
 - **0.3.0** — Multi-pass search (career pages → boards → LinkedIn last). State pointer at `~/.job-scout/state.json`. Single-source schema in `scripts/schema.py`. File contract in `references/file-contract.md`. Auto-migrating data validator. New `ats_provider` / `ats_board_url` columns. Hybrid on-demand A-tier packets.

@@ -184,18 +184,36 @@ def _apply_name_gate(
     if raw.status in (DetectionStatus.NOT_FOUND, DetectionStatus.ERROR):
         return raw  # pass through — no name evidence to score
 
-    # D-02: empty board case (200 + 0 jobs) — BORDERLINE preserved, no rapidfuzz
-    if raw.evidence.get("job_count", -1) == 0:
+    # Issue #1: HTTP 200 + zero jobs (SmartRecruiters totalFound=0, Lever empty
+    # array, Greenhouse zero-job catch-all) carries no positive signal that this
+    # is the right tenant. Without a `first_job_company_name` to fuzzy-match,
+    # the two-factor gate has nothing to verify against, so name_match_score=0.0
+    # was being silently accepted as a BORDERLINE hit and stamped onto
+    # master_targets. Fix: when the empty-board branch can't produce
+    # corroborating name evidence, return NOT_FOUND outright.
+    #
+    # D-02 ("hiring freeze" — empty board for a known-correct tenant) still
+    # works as long as the response carries a verifiable name match: that path
+    # falls through to the rapidfuzz block below, where score>=high yields
+    # CONFIRMED and low<=score<high yields BORDERLINE with the
+    # zero_open_roles note.
+    returned_name = raw.evidence.get("first_job_company_name", "")
+    if raw.evidence.get("job_count", -1) == 0 and not returned_name:
         return DetectionResult(
             provider=raw.provider,
-            status=DetectionStatus.BORDERLINE,
-            board_url=raw.board_url,
-            confidence=raw.confidence,
-            evidence={**raw.evidence, "note": "zero_open_roles"},
+            status=DetectionStatus.NOT_FOUND,
+            board_url=None,
+            confidence=0.0,
+            evidence={
+                **raw.evidence,
+                "note": "zero_open_roles_no_name_evidence",
+                "name_match_score": 0.0,
+                "input_name": company_name,
+                "returned_name": "",
+            },
         )
 
     # Extract returned company name from evidence dict
-    returned_name = raw.evidence.get("first_job_company_name", "")
     if not returned_name:
         # No company name in response — treat as BORDERLINE with 0 confidence
         # (Greenhouse always includes company_name; absence means wildcard catch-all)

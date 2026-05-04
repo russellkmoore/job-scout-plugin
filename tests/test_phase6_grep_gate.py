@@ -166,11 +166,11 @@ def test_phase6_gate_chrome_setup_md_linkedin_only():
 
 
 # ---------------------------------------------------------------------------
-# CON-16 + OUT-06: Version lockstep — 4 SKILL.md + plugin.json all at v0.4.1
+# CON-16 + OUT-06: Version lockstep — 4 SKILL.md + plugin.json all at v0.4.2
 # ---------------------------------------------------------------------------
 
 def test_phase6_gate_version_lockstep():
-    """CON-16 + OUT-06: Exactly 4 SKILL.md frontmatter version lines AND plugin.json all at 0.4.1."""
+    """CON-16 + OUT-06: Exactly 4 SKILL.md frontmatter version lines AND plugin.json all at 0.4.2."""
     skill_versions = []
     for skill_md in sorted((PROJECT_ROOT / "skills").glob("*/SKILL.md")):
         for line in skill_md.read_text().splitlines():
@@ -183,16 +183,16 @@ def test_phase6_gate_version_lockstep():
         f"got {len(skill_versions)}: {skill_versions}"
     )
     for skill_name, version_line in skill_versions:
-        assert version_line == "version: 0.4.1", (
-            f"skills/{skill_name}/SKILL.md: expected 'version: 0.4.1', "
+        assert version_line == "version: 0.4.2", (
+            f"skills/{skill_name}/SKILL.md: expected 'version: 0.4.2', "
             f"got '{version_line}'"
         )
 
     plugin_json_path = PROJECT_ROOT / ".claude-plugin" / "plugin.json"
     assert plugin_json_path.exists(), f"plugin.json not found at {plugin_json_path}"
     plugin = json.loads(plugin_json_path.read_text())
-    assert plugin.get("version") == "0.4.1", (
-        f"plugin.json version expected '0.4.1', got '{plugin.get('version')}'"
+    assert plugin.get("version") == "0.4.2", (
+        f"plugin.json version expected '0.4.2', got '{plugin.get('version')}'"
     )
 
 

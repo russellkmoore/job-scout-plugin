@@ -352,8 +352,15 @@ def test_borderline_appended_to_review_csv(tmp_data_dir, monkeypatch):
     )
 
 
-def test_zero_jobs_borderline_writes_provider_but_empty_confidence(tmp_data_dir, monkeypatch, mock_greenhouse_zero_jobs):
-    """D-02 / DET-05: 200 + 0 jobs -> ats_provider set, ats_slug_confidence empty, review CSV has zero_open_roles."""
+def test_zero_jobs_no_name_evidence_is_not_found(tmp_data_dir, monkeypatch, mock_greenhouse_zero_jobs):
+    """Issue #1: 200 + 0 jobs + no first_job_company_name -> NOT_FOUND, ats_provider="none".
+
+    Previously the empty-board branch (D-02) returned BORDERLINE before rapidfuzz,
+    silently accepting any reachable-but-empty endpoint as a probable hit. With
+    no `first_job_company_name` in the response, there is no positive signal to
+    verify the tenant — _apply_name_gate now collapses this to NOT_FOUND so the
+    row is sentinel-marked and no review CSV row is created.
+    """
     import ats.detect as detect_module
     import ats.providers.greenhouse as gh_module
     monkeypatch.setattr(detect_module, "PROVIDERS", {"greenhouse": gh_module})
@@ -368,17 +375,44 @@ def test_zero_jobs_borderline_writes_provider_but_empty_confidence(tmp_data_dir,
         reader = csv.DictReader(f)
         rows = list(reader)
     airbnb_row = next(r for r in rows if r["company_name"] == "Airbnb")
-    assert airbnb_row["ats_provider"] == "greenhouse", "ats_provider should be set for zero-job board"
-    assert airbnb_row["ats_slug_confidence"] == "", "ats_slug_confidence should be empty for zero-job board"
+    assert airbnb_row["ats_provider"] == "none", (
+        f"Issue #1: 200+0jobs with no name evidence must be NOT_FOUND (sentinel 'none'), "
+        f"got {airbnb_row['ats_provider']!r}"
+    )
+    assert airbnb_row["ats_slug_confidence"] == "", "ats_slug_confidence must be empty for NOT_FOUND"
 
     review_path = tmp_data_dir / "ats_detection_review.csv"
-    assert review_path.exists(), "ats_detection_review.csv should exist for zero-job board"
-    with open(review_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        review_rows = list(reader)
-    airbnb_review = next((r for r in review_rows if r["company_name"] == "Airbnb"), None)
-    assert airbnb_review is not None, "Airbnb should appear in review CSV for zero-job board"
-    assert airbnb_review.get("note") == "zero_open_roles", f"Expected note=zero_open_roles, got {airbnb_review.get('note')!r}"
+    if review_path.exists():
+        with open(review_path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            review_rows = list(reader)
+        airbnb_review = next((r for r in review_rows if r["company_name"] == "Airbnb"), None)
+        assert airbnb_review is None, (
+            f"NOT_FOUND must not produce a review CSV row, got {airbnb_review!r}"
+        )
+
+
+def test_apply_name_gate_zero_jobs_no_name_evidence_returns_not_found():
+    """Issue #1 unit-level: _apply_name_gate collapses 200+0jobs+no-name to NOT_FOUND.
+
+    Covers SmartRecruiters totalFound=0 and Lever empty-array shapes — both
+    return BORDERLINE with job_count=0 and no first_job_company_name.
+    """
+    from ats.detect import _apply_name_gate
+    raw = DetectionResult(
+        provider="smartrecruiters",
+        status=DetectionStatus.BORDERLINE,
+        board_url="https://api.smartrecruiters.com/v1/companies/wildcard/postings",
+        confidence=0.5,
+        evidence={"job_count": 0, "http_status": 200},  # no first_job_company_name
+    )
+    result = _apply_name_gate(raw, "Some Real Company")
+    assert result.status == DetectionStatus.NOT_FOUND, (
+        f"Empty-board with no name evidence must collapse to NOT_FOUND, got {result.status}"
+    )
+    assert result.board_url is None, "NOT_FOUND must clear board_url"
+    assert result.evidence.get("note") == "zero_open_roles_no_name_evidence"
+    assert result.evidence.get("name_match_score") == 0.0
 
 
 # ---------------------------------------------------------------------------
